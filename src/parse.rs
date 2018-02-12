@@ -5,9 +5,16 @@ use std::io::Read;
 enum Error {
 }
 
-fn parse<R>(r: R) -> Result<expr::Expr, Error>
+fn parse<R>(mut r: R) -> Result<expr::Expr, Error>
 where
     R: Read,
 {
-    unimplemented!();
+    let mut buf = [0; 10];
+    r.read(&mut buf);
+    match buf[0] {
+        b'0'...b'9' => {
+            return Ok(expr::Expr::Term(expr::Term::Int(buf[0])));
+        }
+        _ => unimplemented!(),
+    }
 }
