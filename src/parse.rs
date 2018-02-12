@@ -22,3 +22,6 @@ where
 
 struct Wrapper {
 }
+
+impl Wrapper {
+}
