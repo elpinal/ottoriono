@@ -3,6 +3,7 @@ use expr;
 use std::io::Read;
 
 enum Error {
+    EOF,
 }
 
 fn parse<R>(mut r: R) -> Result<expr::Expr, Error>
