@@ -6,7 +6,12 @@ pub enum Expr {
 
 pub enum Term {
     Var(usize, usize),
-    Abs(String, Box<Term>),
+    Abs(String, Type, Box<Term>),
     App(Box<Term>, Box<Term>),
     Int(isize),
+}
+
+pub enum Type {
+    Int,
+    Arr(Box<Type>, Box<Type>),
 }
