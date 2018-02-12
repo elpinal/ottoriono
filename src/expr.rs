@@ -8,4 +8,5 @@ pub enum Term {
     Var(usize, usize),
     Abs(String, Box<Term>),
     App(Box<Term>, Box<Term>),
+    Int(isize),
 }
