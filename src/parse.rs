@@ -19,3 +19,6 @@ where
         _ => unimplemented!(),
     }
 }
+
+struct Wrapper {
+}
