@@ -24,4 +24,6 @@ struct Wrapper {
 }
 
 impl Wrapper {
+    fn next(b: Bytes) -> Option<()> {
+    }
 }
