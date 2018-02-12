@@ -13,7 +13,7 @@ where
     r.read(&mut buf);
     match buf[0] {
         b'0'...b'9' => {
-            return Ok(expr::Expr::Term(expr::Term::Int(buf[0])));
+            return Ok(expr::Expr::Term(expr::Term::Int((buf[0] - b'0') as isize)));
         }
         _ => unimplemented!(),
     }
