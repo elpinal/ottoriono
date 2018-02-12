@@ -24,6 +24,9 @@ struct Wrapper {
 }
 
 impl Wrapper {
-    fn next(b: Bytes) -> Option<()> {
+    fn next(b: B) -> Option<()>
+    where
+        B: Bytes,
+    {
     }
 }
