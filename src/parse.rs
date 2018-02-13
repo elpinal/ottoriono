@@ -2,6 +2,7 @@ use expr::{Expr, Term, Type};
 
 use std::io;
 use std::io::{Bytes, Read};
+use std::mem;
 
 pub enum Error {
     EOF,
@@ -14,14 +15,18 @@ pub fn parse<R>(r: R) -> Result<Expr, Error>
 where
     R: Read,
 {
-    let mut buf = Lexer::new(r.bytes());
-    buf.next_store()?;
+    let mut buf = Parser::new(Lexer::new(r.bytes())?)?;
     buf.parse()
 }
 
 struct Lexer<R> {
     b: Bytes<R>,
     current: u8,
+}
+
+struct Parser<R> {
+    lexer: Lexer<R>,
+    current: Token,
 }
 
 fn is_whitespace(b: u8) -> bool {
@@ -59,6 +64,7 @@ fn is_ident(b: u8) -> bool {
     }
 }
 
+#[derive(Clone, PartialEq)]
 pub enum Token {
     Number(usize),
     Ident(String),
@@ -69,8 +75,10 @@ pub enum Token {
 }
 
 impl<R: Read> Lexer<R> {
-    fn new(b: Bytes<R>) -> Lexer<R> {
-        Lexer { b, current: 0 }
+    fn new(b: Bytes<R>) -> Result<Lexer<R>, Error> {
+        let mut l = Lexer { b, current: 0 };
+        l.next_store()?;
+        Ok(l)
     }
 
     fn next_store(&mut self) -> Result<(), Error> {
@@ -82,21 +90,6 @@ impl<R: Read> Lexer<R> {
         match self.b.next() {
             Some(r) => r.map_err(|e| Error::Io(e)),
             None => Err(Error::EOF),
-        }
-    }
-
-    fn parse(&mut self) -> Result<Expr, Error> {
-        match self.lex()? {
-            Token::Number(n) => Ok(Expr::Term(Term::Int(n as isize))),
-            Token::Ident(s) => Ok(Expr::Term(Term::Var(s))),
-            _ => unimplemented!(),
-        }
-    }
-
-    fn parse_atomic_type(&mut self) -> Result<Type, Error> {
-        match self.lex()? {
-            Token::Int => Ok(Type::Int),
-            t => Err(Error::Expect(String::from("atomic type"), t)),
         }
     }
 
@@ -164,5 +157,30 @@ impl<R: Read> Lexer<R> {
             self.next_store()?;
         }
         Ok(())
+    }
+}
+
+impl<R: Read> Parser<R> {
+    fn new(mut lexer: Lexer<R>) -> Result<Parser<R>, Error> {
+        let t = lexer.lex()?;
+        Ok(Parser { lexer, current: t })
+    }
+
+    fn lex(&mut self) -> Result<(), Error> {
+        self.current = self.lexer.lex()?;
+        Ok(())
+    }
+
+    fn next(&mut self) -> Result<Token, Error> {
+        let next = self.lexer.lex()?;
+        Ok(mem::replace(&mut self.current, next))
+    }
+
+    fn parse(&mut self) -> Result<Expr, Error> {
+        match self.next()? {
+            Token::Number(n) => Ok(Expr::Term(Term::Int(n as isize))),
+            Token::Ident(s) => Ok(Expr::Term(Term::Var(s))),
+            _ => unimplemented!(),
+        }
     }
 }
