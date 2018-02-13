@@ -6,8 +6,8 @@ pub enum Expr {
 
 pub enum Term {
     Var(String),
-    Abs(String, Type, Box<Term>),
-    App(Box<Term>, Box<Term>),
+    Abs(String, Type, Box<Expr>),
+    App(Box<Expr>, Box<Expr>),
     Int(isize),
 }
 
