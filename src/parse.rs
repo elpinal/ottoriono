@@ -63,6 +63,7 @@ enum Token {
     Ident(String),
     Lambda,
     RArrow,
+    Colon,
 }
 
 impl<R: Read> Wrapper<R> {
@@ -97,6 +98,7 @@ impl<R: Read> Wrapper<R> {
             b if is_ident_start(b) => return self.lex_ident(),
             b'\\' => return self.proceed(Token::Lambda),
             b'-' => return self.lex_right_arrow(),
+            b':' => return self.proceed(Token::Colon),
             _ => unimplemented!(),
         }
     }
