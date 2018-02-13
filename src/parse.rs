@@ -72,6 +72,7 @@ pub enum Token {
     Lambda,
     RArrow,
     Colon,
+    Dot,
 }
 
 impl<R: Read> Lexer<R> {
@@ -101,6 +102,7 @@ impl<R: Read> Lexer<R> {
             b'\\' => return self.proceed(Token::Lambda),
             b'-' => return self.lex_right_arrow(),
             b':' => return self.proceed(Token::Colon),
+            b'.' => return self.proceed(Token::Dot),
             _ => unimplemented!(),
         }
     }
@@ -180,10 +182,32 @@ impl<R: Read> Parser<R> {
         match self.next()? {
             Token::Number(n) => Ok(Expr::Term(Term::Int(n as isize))),
             Token::Ident(s) => Ok(Expr::Term(Term::Var(s))),
+            Token::Lambda => self.parse_abs(),
             _ => unimplemented!(),
         }
     }
 
+    fn parse_abs(&mut self) -> Result<Expr, Error> {
+        macro_rules! expect {
+            ($t:expr, $p:pat, $body:expr) => {
+                match self.next()? {
+                    $p => $body,
+                    t => return Err(Error::expect($t, t)),
+                }
+            }
+        }
+        expect!(
+            "ident",
+            Token::Ident(s),
+            expect!("colon", Token::Colon, {
+                let ty = self.parse_type()?;
+                expect!("dot", Token::Dot, {
+                    let body = self.parse()?;
+                    return Ok(Expr::Term(Term::Abs(s, ty, Box::new(body))));
+                })
+            })
+        );
+    }
     fn parse_type(&mut self) -> Result<Type, Error> {
         let a = self.parse_atomic_type()?;
         if self.current == Token::RArrow {
