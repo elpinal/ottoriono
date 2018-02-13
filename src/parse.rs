@@ -183,4 +183,28 @@ impl<R: Read> Parser<R> {
             _ => unimplemented!(),
         }
     }
+
+    fn parse_type(&mut self) -> Result<Type, Error> {
+        let a = self.parse_atomic_type()?;
+        if self.current == Token::RArrow {
+            self.lex()?;
+            let ty = self.parse_type()?;
+            Ok(Type::Arr(Box::new(a), Box::new(ty)))
+        } else {
+            Err(Error::expect("right arrow", self.current.clone()))
+        }
+    }
+
+    fn parse_atomic_type(&mut self) -> Result<Type, Error> {
+        match self.next()? {
+            Token::Int => Ok(Type::Int),
+            t => Err(Error::expect("atomic type", t)),
+        }
+    }
+}
+
+impl Error {
+    fn expect(s: &str, t: Token) -> Error {
+        Error::Expect(String::from(s), t)
+    }
 }
