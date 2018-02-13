@@ -61,6 +61,7 @@ fn is_ident(b: u8) -> bool {
 enum Token {
     Number(usize),
     Ident(String),
+    Int,
     Lambda,
     RArrow,
     Colon,
@@ -124,7 +125,11 @@ impl<R: Read> Wrapper<R> {
                 b if is_ident(b) => vec.push(b),
                 _ => {
                     let s = unsafe { String::from_utf8_unchecked(vec) };
-                    return Ok(Token::Ident(s));
+                    return Ok(if s == "int" {
+                        Token::Int
+                    } else {
+                        Token::Ident(s)
+                    });
                 }
             }
         }
