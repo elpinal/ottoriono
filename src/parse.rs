@@ -14,12 +14,7 @@ where
 {
     let mut buf = Wrapper::new(r.bytes());
     buf.next_store()?;
-    match buf.current {
-        b'0'...b'9' => {
-            return Ok(Expr::Term(Term::Int((buf.current - b'0') as isize)));
-        }
-        _ => unimplemented!(),
-    }
+    buf.parse()
 }
 
 struct Wrapper<R> {
@@ -42,6 +37,25 @@ impl<R: Read> Wrapper<R> {
         match self.b.next() {
             Some(r) => r.map_err(|e| Error::Io(e)),
             None => Err(Error::EOF),
+        }
+    }
+
+    fn parse(&mut self) -> Result<Expr, Error> {
+        match self.current {
+            b'0'...b'9' => self.parse_int(),
+            _ => unimplemented!(),
+        }
+    }
+
+    fn parse_int(&mut self) -> Result<Expr, Error> {
+        let f = |buf: &Wrapper<_>| (buf.current - b'0') as isize;
+        let mut n = f(self);
+        loop {
+            self.next_store()?;
+            match self.current {
+                b'0'...b'9' => n = n * 10 + f(self),
+                _ => return Ok(Expr::Term(Term::Int(n))),
+            }
         }
     }
 }
