@@ -3,12 +3,12 @@ use expr::{Expr, Term};
 use std::io;
 use std::io::{Bytes, Read};
 
-enum Error {
+pub enum Error {
     EOF,
     Io(io::Error),
 }
 
-fn parse<R>(r: R) -> Result<Expr, Error>
+pub fn parse<R>(r: R) -> Result<Expr, Error>
 where
     R: Read,
 {
@@ -49,8 +49,7 @@ impl<R: Read> Wrapper<R> {
     }
 
     fn next_store(&mut self) -> Result<(), Error> {
-        let b = self.next()?;
-        self.current = b;
+        self.current = self.next()?;
         Ok(())
     }
 
