@@ -6,6 +6,7 @@ use std::io::{Bytes, Read};
 pub enum Error {
     EOF,
     Io(io::Error),
+    Unexpected(u8, u8),
 }
 
 pub fn parse<R>(r: R) -> Result<Expr, Error>
@@ -95,6 +96,8 @@ impl<R: Read> Wrapper<R> {
                 b if is_whitespace(b) => (),
                 b if is_digit_start(b) => return self.lex_number(),
                 b if is_ident_start(b) => return self.lex_ident(),
+                b'\\' => return self.lex_lambda(),
+                b'-' => return self.lex_right_arrow(),
                 _ => unimplemented!(),
             }
         }
@@ -124,6 +127,22 @@ impl<R: Read> Wrapper<R> {
                     return Ok(Token::Ident(s));
                 }
             }
+        }
+    }
+
+    fn lex_lambda(&mut self) -> Result<Token, Error> {
+        self.next_store()?;
+        Ok(Token::Lambda)
+    }
+
+    fn lex_right_arrow(&mut self) -> Result<Token, Error> {
+        self.next_store()?;
+        match self.current {
+            b'>' => {
+                self.next_store()?;
+                Ok(Token::RArrow)
+            }
+            b => Err(Error::Unexpected(b, b'>')),
         }
     }
 
