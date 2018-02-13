@@ -95,7 +95,7 @@ impl<R: Read> Wrapper<R> {
         match self.current {
             b if is_digit_start(b) => return self.lex_number(),
             b if is_ident_start(b) => return self.lex_ident(),
-            b'\\' => return self.lex_lambda(),
+            b'\\' => return self.proceed(Token::Lambda),
             b'-' => return self.lex_right_arrow(),
             _ => unimplemented!(),
         }
@@ -128,9 +128,9 @@ impl<R: Read> Wrapper<R> {
         }
     }
 
-    fn lex_lambda(&mut self) -> Result<Token, Error> {
+    fn proceed(&mut self, t: Token) -> Result<Token, Error> {
         self.next_store()?;
-        Ok(Token::Lambda)
+        Ok(t)
     }
 
     fn lex_right_arrow(&mut self) -> Result<Token, Error> {
