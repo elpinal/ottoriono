@@ -14,12 +14,12 @@ pub fn parse<R>(r: R) -> Result<Expr, Error>
 where
     R: Read,
 {
-    let mut buf = Wrapper::new(r.bytes());
+    let mut buf = Lexer::new(r.bytes());
     buf.next_store()?;
     buf.parse()
 }
 
-struct Wrapper<R> {
+struct Lexer<R> {
     b: Bytes<R>,
     current: u8,
 }
@@ -68,9 +68,9 @@ pub enum Token {
     Colon,
 }
 
-impl<R: Read> Wrapper<R> {
-    fn new(b: Bytes<R>) -> Wrapper<R> {
-        Wrapper { b, current: 0 }
+impl<R: Read> Lexer<R> {
+    fn new(b: Bytes<R>) -> Lexer<R> {
+        Lexer { b, current: 0 }
     }
 
     fn next_store(&mut self) -> Result<(), Error> {
@@ -113,7 +113,7 @@ impl<R: Read> Wrapper<R> {
     }
 
     fn lex_number(&mut self) -> Result<Token, Error> {
-        let f = |buf: &Wrapper<_>| (buf.current - b'0') as usize;
+        let f = |buf: &Lexer<_>| (buf.current - b'0') as usize;
         let mut n = f(self);
         loop {
             self.next_store()?;
