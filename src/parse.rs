@@ -116,4 +116,11 @@ impl<R: Read> Wrapper<R> {
             }
         }
     }
+
+    fn skip_whitespace(&mut self) -> Result<(), Error> {
+        while is_whitespace(self.current) {
+            self.next_store()?;
+        }
+        Ok(())
+    }
 }
