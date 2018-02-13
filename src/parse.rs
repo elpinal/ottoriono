@@ -1,4 +1,4 @@
-use expr;
+use expr::{Expr, Term};
 
 use std::io;
 use std::io::{Bytes, Read};
@@ -8,7 +8,7 @@ enum Error {
     Io(io::Error),
 }
 
-fn parse<R>(r: R) -> Result<expr::Expr, Error>
+fn parse<R>(r: R) -> Result<Expr, Error>
 where
     R: Read,
 {
@@ -16,9 +16,7 @@ where
     buf.next_store()?;
     match buf.current {
         b'0'...b'9' => {
-            return Ok(expr::Expr::Term(
-                expr::Term::Int((buf.current - b'0') as isize),
-            ));
+            return Ok(Expr::Term(Term::Int((buf.current - b'0') as isize)));
         }
         _ => unimplemented!(),
     }
