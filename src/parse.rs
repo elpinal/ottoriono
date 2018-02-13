@@ -1,4 +1,4 @@
-use expr::{Expr, Term};
+use expr::{Expr, Term, Type};
 
 use std::io;
 use std::io::{Bytes, Read};
@@ -7,6 +7,7 @@ pub enum Error {
     EOF,
     Io(io::Error),
     Unexpected(u8, u8),
+    Expect(String, Token),
 }
 
 pub fn parse<R>(r: R) -> Result<Expr, Error>
@@ -58,7 +59,7 @@ fn is_ident(b: u8) -> bool {
     }
 }
 
-enum Token {
+pub enum Token {
     Number(usize),
     Ident(String),
     Int,
@@ -89,6 +90,13 @@ impl<R: Read> Wrapper<R> {
             Token::Number(n) => Ok(Expr::Term(Term::Int(n as isize))),
             Token::Ident(s) => Ok(Expr::Term(Term::Var(s))),
             _ => unimplemented!(),
+        }
+    }
+
+    fn parse_atomic_type(&mut self) -> Result<Type, Error> {
+        match self.lex()? {
+            Token::Int => Ok(Type::Int),
+            t => Err(Error::Expect(String::from("atomic type"), t)),
         }
     }
 
