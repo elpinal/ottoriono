@@ -79,7 +79,7 @@ impl<R: Read> Wrapper<R> {
             match self.current {
                 b if is_whitespace(b) => (),
                 b if is_digit_start(b) => return self.parse_int(),
-                b if is_ident_start(b) => return self.parse_ident(),
+                b if is_ident_start(b) => return self.parse_var(),
                 _ => unimplemented!(),
             }
         }
@@ -97,7 +97,12 @@ impl<R: Read> Wrapper<R> {
         }
     }
 
-    fn parse_ident(&mut self) -> Result<Expr, Error> {
+    fn parse_var(&mut self) -> Result<Expr, Error> {
+        let s = self.parse_ident()?;
+        Ok(Expr::Term(Term::Var(s)))
+    }
+
+    fn parse_ident(&mut self) -> Result<String, Error> {
         let mut vec = vec![];
         vec.push(self.current);
         loop {
@@ -106,7 +111,7 @@ impl<R: Read> Wrapper<R> {
                 b if is_ident(b) => vec.push(b),
                 _ => {
                     let s = unsafe { String::from_utf8_unchecked(vec) };
-                    return Ok(Expr::Term(Term::Var(s)));
+                    return Ok(s);
                 }
             }
         }
