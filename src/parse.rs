@@ -57,6 +57,13 @@ fn is_ident(b: u8) -> bool {
     }
 }
 
+enum Token {
+    Number(usize),
+    Ident(String),
+    Lambda,
+    RArrow,
+}
+
 impl<R: Read> Wrapper<R> {
     fn new(b: Bytes<R>) -> Wrapper<R> {
         Wrapper { b, current: 0 }
@@ -75,34 +82,37 @@ impl<R: Read> Wrapper<R> {
     }
 
     fn parse(&mut self) -> Result<Expr, Error> {
+        match self.lex()? {
+            Token::Number(n) => Ok(Expr::Term(Term::Int(n as isize))),
+            Token::Ident(s) => Ok(Expr::Term(Term::Var(s))),
+            _ => unimplemented!(),
+        }
+    }
+
+    fn lex(&mut self) -> Result<Token, Error> {
         loop {
             match self.current {
                 b if is_whitespace(b) => (),
-                b if is_digit_start(b) => return self.parse_int(),
-                b if is_ident_start(b) => return self.parse_var(),
+                b if is_digit_start(b) => return self.lex_number(),
+                b if is_ident_start(b) => return self.lex_ident(),
                 _ => unimplemented!(),
             }
         }
     }
 
-    fn parse_int(&mut self) -> Result<Expr, Error> {
-        let f = |buf: &Wrapper<_>| (buf.current - b'0') as isize;
+    fn lex_number(&mut self) -> Result<Token, Error> {
+        let f = |buf: &Wrapper<_>| (buf.current - b'0') as usize;
         let mut n = f(self);
         loop {
             self.next_store()?;
             match self.current {
                 b if is_digit(b) => n = n * 10 + f(self),
-                _ => return Ok(Expr::Term(Term::Int(n))),
+                _ => return Ok(Token::Number(n)),
             }
         }
     }
 
-    fn parse_var(&mut self) -> Result<Expr, Error> {
-        let s = self.parse_ident()?;
-        Ok(Expr::Term(Term::Var(s)))
-    }
-
-    fn parse_ident(&mut self) -> Result<String, Error> {
+    fn lex_ident(&mut self) -> Result<Token, Error> {
         let mut vec = vec![];
         vec.push(self.current);
         loop {
@@ -111,7 +121,7 @@ impl<R: Read> Wrapper<R> {
                 b if is_ident(b) => vec.push(b),
                 _ => {
                     let s = unsafe { String::from_utf8_unchecked(vec) };
-                    return Ok(s);
+                    return Ok(Token::Ident(s));
                 }
             }
         }
