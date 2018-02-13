@@ -43,6 +43,20 @@ fn is_digit_start(b: u8) -> bool {
     }
 }
 
+fn is_ident_start(b: u8) -> bool {
+    match b {
+        b'a'...b'z' | b'A'...b'Z' => true,
+        _ => false,
+    }
+}
+
+fn is_ident(b: u8) -> bool {
+    match b {
+        _ if is_ident_start(b) || is_digit(b) => true,
+        _ => false,
+    }
+}
+
 impl<R: Read> Wrapper<R> {
     fn new(b: Bytes<R>) -> Wrapper<R> {
         Wrapper { b, current: 0 }
@@ -63,8 +77,9 @@ impl<R: Read> Wrapper<R> {
     fn parse(&mut self) -> Result<Expr, Error> {
         loop {
             match self.current {
-                b if is_digit_start(b) => return self.parse_int(),
                 b if is_whitespace(b) => (),
+                b if is_digit_start(b) => return self.parse_int(),
+                b if is_ident_start(b) => return self.parse_ident(),
                 _ => unimplemented!(),
             }
         }
@@ -78,6 +93,21 @@ impl<R: Read> Wrapper<R> {
             match self.current {
                 b if is_digit(b) => n = n * 10 + f(self),
                 _ => return Ok(Expr::Term(Term::Int(n))),
+            }
+        }
+    }
+
+    fn parse_ident(&mut self) -> Result<Expr, Error> {
+        let mut vec = vec![];
+        vec.push(self.current);
+        loop {
+            self.next_store()?;
+            match self.current {
+                b if is_ident(b) => vec.push(b),
+                _ => {
+                    let s = unsafe { String::from_utf8_unchecked(vec) };
+                    return Ok(Expr::Term(Term::Var(s)));
+                }
             }
         }
     }
