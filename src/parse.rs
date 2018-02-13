@@ -22,6 +22,27 @@ struct Wrapper<R> {
     current: u8,
 }
 
+fn is_whitespace(b: u8) -> bool {
+    match b {
+        b' ' | b'\n' => true,
+        _ => false,
+    }
+}
+
+fn is_digit(b: u8) -> bool {
+    match b {
+        b'0'...b'9' => true,
+        _ => false,
+    }
+}
+
+fn is_digit_start(b: u8) -> bool {
+    match b {
+        b'1'...b'9' => true,
+        _ => false,
+    }
+}
+
 impl<R: Read> Wrapper<R> {
     fn new(b: Bytes<R>) -> Wrapper<R> {
         Wrapper { b, current: 0 }
@@ -41,9 +62,12 @@ impl<R: Read> Wrapper<R> {
     }
 
     fn parse(&mut self) -> Result<Expr, Error> {
-        match self.current {
-            b'0'...b'9' => self.parse_int(),
-            _ => unimplemented!(),
+        loop {
+            match self.current {
+                b if is_digit_start(b) => return self.parse_int(),
+                b if is_whitespace(b) => (),
+                _ => unimplemented!(),
+            }
         }
     }
 
@@ -53,7 +77,7 @@ impl<R: Read> Wrapper<R> {
         loop {
             self.next_store()?;
             match self.current {
-                b'0'...b'9' => n = n * 10 + f(self),
+                b if is_digit(b) => n = n * 10 + f(self),
                 _ => return Ok(Expr::Term(Term::Int(n))),
             }
         }
