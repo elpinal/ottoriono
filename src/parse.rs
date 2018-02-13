@@ -12,11 +12,13 @@ fn parse<R>(r: R) -> Result<expr::Expr, Error>
 where
     R: Read,
 {
-    let mut buf = Wrapper { b: r.bytes() };
-    let b = buf.next()?;
-    match b {
+    let mut buf = Wrapper::new(r.bytes());
+    buf.next_store()?;
+    match buf.current {
         b'0'...b'9' => {
-            return Ok(expr::Expr::Term(expr::Term::Int((b - b'0') as isize)));
+            return Ok(expr::Expr::Term(
+                expr::Term::Int((buf.current - b'0') as isize),
+            ));
         }
         _ => unimplemented!(),
     }
@@ -24,9 +26,20 @@ where
 
 struct Wrapper<R> {
     b: Bytes<R>,
+    current: u8,
 }
 
 impl<R: Read> Wrapper<R> {
+    fn new(b: Bytes<R>) -> Wrapper<R> {
+        Wrapper { b, current: 0 }
+    }
+
+    fn next_store(&mut self) -> Result<(), Error> {
+        let b = self.next()?;
+        self.current = b;
+        Ok(())
+    }
+
     fn next(&mut self) -> Result<u8, Error> {
         match self.b.next() {
             Some(r) => r.map_err(|e| Error::Io(e)),
