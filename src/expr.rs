@@ -24,3 +24,9 @@ impl Term {
         Term::App(Box::new(e1), Box::new(e2))
     }
 }
+
+impl Type {
+    pub fn arr(t1: Type, t2: Type) -> Type {
+        Type::Arr(Box::new(t1), Box::new(t2))
+    }
+}

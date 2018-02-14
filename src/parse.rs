@@ -352,5 +352,16 @@ mod tests {
                 ),
             )))
         );
+
+        assert_eq!(
+            parse("\\x:int -> int.\\ y : int . 9".as_bytes()).ok(),
+            Some(Term(Abs(
+                String::from("x"),
+                Type::arr(Type::Int, Type::Int),
+                Box::new(
+                    Term(Abs(String::from("y"), Type::Int, Box::new(int(9)))),
+                ),
+            )))
+        );
     }
 }
