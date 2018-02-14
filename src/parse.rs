@@ -23,6 +23,7 @@ where
 struct Lexer<R> {
     b: Bytes<R>,
     current: u8,
+    eof: bool,
 }
 
 struct Parser<R> {
@@ -78,25 +79,33 @@ pub enum Token {
 
 impl<R: Read> Lexer<R> {
     fn new(b: Bytes<R>) -> Result<Lexer<R>, Error> {
-        let mut l = Lexer { b, current: 0 };
+        let mut l = Lexer {
+            b,
+            current: 0,
+            eof: false,
+        };
         l.next_store()?;
         Ok(l)
     }
 
     fn next_store(&mut self) -> Result<(), Error> {
-        self.current = self.next()?;
+        if let Some(r) = self.next() {
+            self.current = r?;
+        } else {
+            self.eof = true;
+        }
         Ok(())
     }
 
-    fn next(&mut self) -> Result<u8, Error> {
-        match self.b.next() {
-            Some(r) => r.map_err(|e| Error::Io(e)),
-            None => Err(Error::EOF),
-        }
+    fn next(&mut self) -> Option<Result<u8, Error>> {
+        self.b.next().map(|r| r.map_err(|e| Error::Io(e)))
     }
 
     fn lex(&mut self) -> Result<Token, Error> {
         self.skip_whitespace()?;
+        if self.eof {
+            return Err(Error::EOF);
+        }
         match self.current {
             b if is_digit_start(b) => return self.lex_number(),
             b if is_ident_start(b) => return self.lex_ident(),
@@ -113,10 +122,10 @@ impl<R: Read> Lexer<R> {
         let mut n = f(self);
         loop {
             self.next_store()?;
-            match self.current {
-                b if is_digit(b) => n = n * 10 + f(self),
-                _ => return Ok(Token::Number(n)),
+            if self.eof || !is_digit(self.current) {
+                return Ok(Token::Number(n));
             }
+            n = n * 10 + f(self)
         }
     }
 
@@ -125,17 +134,15 @@ impl<R: Read> Lexer<R> {
         vec.push(self.current);
         loop {
             self.next_store()?;
-            match self.current {
-                b if is_ident(b) => vec.push(b),
-                _ => {
-                    let s = unsafe { String::from_utf8_unchecked(vec) };
-                    return Ok(if s == "int" {
-                        Token::Int
-                    } else {
-                        Token::Ident(s)
-                    });
-                }
+            if self.eof || !is_ident(self.current) {
+                let s = unsafe { String::from_utf8_unchecked(vec) };
+                return Ok(if s == "int" {
+                    Token::Int
+                } else {
+                    Token::Ident(s)
+                });
             }
+            vec.push(self.current);
         }
     }
 
@@ -146,6 +153,9 @@ impl<R: Read> Lexer<R> {
 
     fn lex_right_arrow(&mut self) -> Result<Token, Error> {
         self.next_store()?;
+        if self.eof {
+            return Err(Error::EOF);
+        }
         match self.current {
             b'>' => {
                 self.next_store()?;
@@ -156,7 +166,7 @@ impl<R: Read> Lexer<R> {
     }
 
     fn skip_whitespace(&mut self) -> Result<(), Error> {
-        while is_whitespace(self.current) {
+        while !self.eof && is_whitespace(self.current) {
             self.next_store()?;
         }
         Ok(())
@@ -270,11 +280,25 @@ impl Error {
     fn expect(s: &str, t: Token) -> Error {
         Error::Expect(String::from(s), t)
     }
+
+    fn is_eof(&self) -> bool {
+        match *self {
+            Error::EOF => true,
+            _ => false,
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_lex() {
+        let mut l = Lexer::new("a".as_bytes().bytes()).unwrap();
+        assert_eq!(l.lex().ok(), Some(Token::Ident(String::from("a"))));
+        assert!(l.lex().unwrap_err().is_eof());
+    }
 
     #[test]
     fn test_parse() {
