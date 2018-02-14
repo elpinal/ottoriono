@@ -4,6 +4,7 @@ use std::io;
 use std::io::{Bytes, Read};
 use std::mem;
 
+#[derive(Debug)]
 pub enum Error {
     EOF,
     Io(io::Error),
@@ -64,7 +65,7 @@ fn is_ident(b: u8) -> bool {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Token {
     Number(usize),
     Ident(String),
@@ -268,5 +269,15 @@ impl<R: Read> Parser<R> {
 impl Error {
     fn expect(s: &str, t: Token) -> Error {
         Error::Expect(String::from(s), t)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse() {
+        assert_eq!(parse("x".as_bytes()).ok(), Some(Expr::Term(Term::Var(String::from("x")))));
     }
 }

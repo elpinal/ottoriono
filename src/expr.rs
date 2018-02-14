@@ -1,9 +1,11 @@
+#[derive(Debug, PartialEq)]
 pub enum Expr {
     Add(Box<Expr>, Term),
     Sub(Box<Expr>, Term),
     Term(Term),
 }
 
+#[derive(Debug, PartialEq)]
 pub enum Term {
     Var(String),
     Abs(String, Type, Box<Expr>),
@@ -11,6 +13,7 @@ pub enum Term {
     Int(isize),
 }
 
+#[derive(Debug, PartialEq)]
 pub enum Type {
     Int,
     Arr(Box<Type>, Box<Type>),
