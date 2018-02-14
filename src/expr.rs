@@ -15,3 +15,9 @@ pub enum Type {
     Int,
     Arr(Box<Type>, Box<Type>),
 }
+
+impl Term {
+    pub fn app(e1: Expr, e2: Expr) -> Term {
+        Term::App(Box::new(e1), Box::new(e2))
+    }
+}

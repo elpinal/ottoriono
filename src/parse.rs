@@ -179,12 +179,47 @@ impl<R: Read> Parser<R> {
     }
 
     fn parse(&mut self) -> Result<Expr, Error> {
-        match self.next()? {
-            Token::Number(n) => Ok(Expr::Term(Term::Int(n as isize))),
-            Token::Ident(s) => Ok(Expr::Term(Term::Var(s))),
+        match self.current {
             Token::Lambda => self.parse_abs(),
-            _ => unimplemented!(),
+            _ => self.parse_expr(),
         }
+    }
+
+    fn parse_expr(&mut self) -> Result<Expr, Error> {
+        self.parse_term()
+    }
+
+    fn parse_term(&mut self) -> Result<Expr, Error> {
+        let e0 = self.parse_factor()?.ok_or_else(|| {
+            Error::expect("factor", self.current.clone())
+        })?;
+        let mut v = vec![];
+        loop {
+            match self.parse_factor()? {
+                Some(e1) => v.push(e1),
+                None => return Ok(v.into_iter().fold(e0, |e, e1| Expr::Term(Term::app(e, e1)))),
+            }
+        }
+    }
+
+    fn parse_factor(&mut self) -> Result<Option<Expr>, Error> {
+        macro_rules! proceed {
+            ($e:expr) => {
+                {
+                    self.lex()?;
+                    Some(Expr::Term($e))
+                }
+            }
+        }
+        let mut current = mem::replace(&mut self.current, unsafe { mem::uninitialized() });
+        Ok(match current {
+            Token::Number(n) => proceed!(Term::Int(n as isize)),
+            Token::Ident(s) => proceed!(Term::Var(s)),
+            _ => {
+                mem::swap(&mut self.current, &mut current);
+                None
+            }
+        })
     }
 
     fn parse_abs(&mut self) -> Result<Expr, Error> {
