@@ -206,7 +206,10 @@ impl<R: Read> Parser<R> {
 
     fn parse(&mut self) -> Result<Expr, Error> {
         match self.current_or_eof()? {
-            &Token::Lambda => self.parse_abs(),
+            &Token::Lambda => {
+                self.lex()?;
+                self.parse_abs()
+            }
             _ => self.parse_expr(),
         }
     }
@@ -274,11 +277,7 @@ impl<R: Read> Parser<R> {
     fn parse_type(&mut self) -> Result<Type, Error> {
         let a = self.parse_atomic_type()?;
         {
-            if let Some(ref t) = self.current {
-                if t != &Token::RArrow {
-                    return Err(Error::expect("right arrow", t.clone()));
-                }
-            } else {
+            if self.current != Some(Token::RArrow) {
                 return Ok(a);
             }
         }
@@ -322,9 +321,36 @@ mod tests {
 
     #[test]
     fn test_parse() {
+        use self::Expr::*;
+        use self::Term;
+        use self::Term::*;
+
+        let var = |s| Term(Var(String::from(s)));
+        let int = |n| Term(Int(n));
+
+        assert_eq!(parse("x".as_bytes()).ok(), Some(var("x")));
+
         assert_eq!(
-            parse("x".as_bytes()).ok(),
-            Some(Expr::Term(Term::Var(String::from("x"))))
+            parse("x y".as_bytes()).ok(),
+            Some(Term(Term::app(var("x"), var("y"))))
+        );
+
+        assert_eq!(
+            parse("x y z".as_bytes()).ok(),
+            Some(Term(
+                Term::app(Term(Term::app(var("x"), var("y"))), var("z")),
+            ))
+        );
+
+        assert_eq!(
+            parse("\\x:int.12 y 3".as_bytes()).ok(),
+            Some(Term(Abs(
+                String::from("x"),
+                Type::Int,
+                Box::new(
+                    Term(Term::app(Term(Term::app(int(12), var("y"))), int(3))),
+                ),
+            )))
         );
     }
 }
