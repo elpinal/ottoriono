@@ -206,7 +206,9 @@ impl<R: Read> Parser<R> {
         macro_rules! proceed {
             ($e:expr) => {
                 {
-                    self.lex()?;
+                    let mut next = self.lexer.lex()?;
+                    mem::swap(&mut self.current, &mut next);
+                    mem::forget(next);
                     Some(Expr::Term($e))
                 }
             }
@@ -217,6 +219,7 @@ impl<R: Read> Parser<R> {
             Token::Ident(s) => proceed!(Term::Var(s)),
             _ => {
                 mem::swap(&mut self.current, &mut current);
+                mem::forget(current);
                 None
             }
         })
