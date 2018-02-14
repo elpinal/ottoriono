@@ -28,7 +28,7 @@ struct Lexer<R> {
 
 struct Parser<R> {
     lexer: Lexer<R>,
-    current: Token,
+    current: Option<Token>,
 }
 
 fn is_whitespace(b: u8) -> bool {
@@ -176,22 +176,37 @@ impl<R: Read> Lexer<R> {
 impl<R: Read> Parser<R> {
     fn new(mut lexer: Lexer<R>) -> Result<Parser<R>, Error> {
         let t = lexer.lex()?;
-        Ok(Parser { lexer, current: t })
+        Ok(Parser {
+            lexer,
+            current: Some(t),
+        })
     }
 
     fn lex(&mut self) -> Result<(), Error> {
-        self.current = self.lexer.lex()?;
+        self.current = Some(self.lexer.lex()?);
         Ok(())
     }
 
-    fn next(&mut self) -> Result<Token, Error> {
-        let next = self.lexer.lex()?;
-        Ok(mem::replace(&mut self.current, next))
+    fn next(&mut self) -> Result<Option<Token>, Error> {
+        match self.lexer.lex() {
+            Err(ref e) if e.is_eof() => Ok(self.take()),
+            Err(e) => Err(e),
+            Ok(t) => Ok(mem::replace(&mut self.current, Some(t))),
+        }
+    }
+
+    fn take(&mut self) -> Option<Token> {
+        mem::replace(&mut self.current, None)
+    }
+
+    fn current_or_eof(&self) -> Result<&Token, Error> {
+        let t: Option<&Token> = self.current.as_ref();
+        t.ok_or(Error::EOF)
     }
 
     fn parse(&mut self) -> Result<Expr, Error> {
-        match self.current {
-            Token::Lambda => self.parse_abs(),
+        match self.current_or_eof()? {
+            &Token::Lambda => self.parse_abs(),
             _ => self.parse_expr(),
         }
     }
@@ -201,9 +216,12 @@ impl<R: Read> Parser<R> {
     }
 
     fn parse_term(&mut self) -> Result<Expr, Error> {
-        let e0 = self.parse_factor()?.ok_or_else(|| {
-            Error::expect("factor", self.current.clone())
-        })?;
+        let e0 = self.parse_factor()?.ok_or_else(
+            || match self.current_or_eof() {
+                Ok(t) => Error::expect("factor", t.clone()),
+                Err(e) => e,
+            },
+        )?;
         let mut v = vec![];
         loop {
             match self.parse_factor()? {
@@ -217,20 +235,16 @@ impl<R: Read> Parser<R> {
         macro_rules! proceed {
             ($e:expr) => {
                 {
-                    let mut next = self.lexer.lex()?;
-                    mem::swap(&mut self.current, &mut next);
-                    mem::forget(next);
+                    self.next()?;
                     Some(Expr::Term($e))
                 }
             }
         }
-        let mut current = mem::replace(&mut self.current, unsafe { mem::uninitialized() });
-        Ok(match current {
-            Token::Number(n) => proceed!(Term::Int(n as isize)),
-            Token::Ident(s) => proceed!(Term::Var(s)),
-            _ => {
+        Ok(match self.take() {
+            Some(Token::Number(n)) => proceed!(Term::Int(n as isize)),
+            Some(Token::Ident(s)) => proceed!(Term::Var(s)),
+            mut current => {
                 mem::swap(&mut self.current, &mut current);
-                mem::forget(current);
                 None
             }
         })
@@ -239,7 +253,7 @@ impl<R: Read> Parser<R> {
     fn parse_abs(&mut self) -> Result<Expr, Error> {
         macro_rules! expect {
             ($t:expr, $p:pat, $body:expr) => {
-                match self.next()? {
+                match self.next()?.ok_or(Error::EOF)? {
                     $p => $body,
                     t => return Err(Error::expect($t, t)),
                 }
@@ -259,19 +273,25 @@ impl<R: Read> Parser<R> {
     }
     fn parse_type(&mut self) -> Result<Type, Error> {
         let a = self.parse_atomic_type()?;
-        if self.current == Token::RArrow {
-            self.lex()?;
-            let ty = self.parse_type()?;
-            Ok(Type::Arr(Box::new(a), Box::new(ty)))
-        } else {
-            Err(Error::expect("right arrow", self.current.clone()))
+        {
+            if let Some(ref t) = self.current {
+                if t != &Token::RArrow {
+                    return Err(Error::expect("right arrow", t.clone()));
+                }
+            } else {
+                return Ok(a);
+            }
         }
+        self.lex()?;
+        let ty = self.parse_type()?;
+        Ok(Type::Arr(Box::new(a), Box::new(ty)))
     }
 
     fn parse_atomic_type(&mut self) -> Result<Type, Error> {
         match self.next()? {
-            Token::Int => Ok(Type::Int),
-            t => Err(Error::expect("atomic type", t)),
+            Some(Token::Int) => Ok(Type::Int),
+            Some(t) => Err(Error::expect("atomic type", t)),
+            None => Err(Error::EOF),
         }
     }
 }
@@ -302,6 +322,9 @@ mod tests {
 
     #[test]
     fn test_parse() {
-        assert_eq!(parse("x".as_bytes()).ok(), Some(Expr::Term(Term::Var(String::from("x")))));
+        assert_eq!(
+            parse("x".as_bytes()).ok(),
+            Some(Expr::Term(Term::Var(String::from("x"))))
+        );
     }
 }
