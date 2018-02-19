@@ -99,6 +99,11 @@ impl<R: Read> Lexer<R> {
         Lexer::new(r.bytes())
     }
 
+    /// Return the position. Its line and column are start from 1.
+    fn position(&self) -> (usize, usize) {
+        (self.line + 1, self.column + 1)
+    }
+
     fn next_store(&mut self) -> Result<(), Error> {
         if let Some(r) = self.next() {
             self.current = r?;
