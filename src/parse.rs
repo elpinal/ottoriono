@@ -21,6 +21,8 @@ where
     buf.parse()
 }
 
+struct Position(usize, usize);
+
 struct Lexer<R> {
     b: Bytes<R>,
     current: u8,
@@ -100,8 +102,8 @@ impl<R: Read> Lexer<R> {
     }
 
     /// Return the position. Its line and column are start from 1.
-    fn position(&self) -> (usize, usize) {
-        (self.line + 1, self.column + 1)
+    fn position(&self) -> Position {
+        Position(self.line + 1, self.column + 1)
     }
 
     fn next_store(&mut self) -> Result<(), Error> {
