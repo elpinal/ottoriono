@@ -12,7 +12,7 @@ pub enum Error {
     Expect(String, Token),
 }
 
-pub fn parse<R>(r: R) -> Result<Expr, Error>
+pub fn parse<R>(r: R) -> Result<Option<Expr>, Error>
 where
     R: Read,
 {
@@ -101,10 +101,10 @@ impl<R: Read> Lexer<R> {
         self.b.next().map(|r| r.map_err(|e| Error::Io(e)))
     }
 
-    fn lex(&mut self) -> Result<Token, Error> {
+    fn lex(&mut self) -> Result<Option<Token>, Error> {
         self.skip_whitespace()?;
         if self.eof {
-            return Err(Error::EOF);
+            return Ok(None);
         }
         match self.current {
             b if is_digit_start(b) => return self.lex_number(),
@@ -117,41 +117,41 @@ impl<R: Read> Lexer<R> {
         }
     }
 
-    fn lex_number(&mut self) -> Result<Token, Error> {
+    fn lex_number(&mut self) -> Result<Option<Token>, Error> {
         let f = |buf: &Lexer<_>| (buf.current - b'0') as usize;
         let mut n = f(self);
         loop {
             self.next_store()?;
             if self.eof || !is_digit(self.current) {
-                return Ok(Token::Number(n));
+                return Ok(Some(Token::Number(n)));
             }
             n = n * 10 + f(self)
         }
     }
 
-    fn lex_ident(&mut self) -> Result<Token, Error> {
+    fn lex_ident(&mut self) -> Result<Option<Token>, Error> {
         let mut vec = vec![];
         vec.push(self.current);
         loop {
             self.next_store()?;
             if self.eof || !is_ident(self.current) {
                 let s = unsafe { String::from_utf8_unchecked(vec) };
-                return Ok(if s == "int" {
+                return Ok(Some(if s == "int" {
                     Token::Int
                 } else {
                     Token::Ident(s)
-                });
+                }));
             }
             vec.push(self.current);
         }
     }
 
-    fn proceed(&mut self, t: Token) -> Result<Token, Error> {
+    fn proceed(&mut self, t: Token) -> Result<Option<Token>, Error> {
         self.next_store()?;
-        Ok(t)
+        Ok(Some(t))
     }
 
-    fn lex_right_arrow(&mut self) -> Result<Token, Error> {
+    fn lex_right_arrow(&mut self) -> Result<Option<Token>, Error> {
         self.next_store()?;
         if self.eof {
             return Err(Error::EOF);
@@ -159,7 +159,7 @@ impl<R: Read> Lexer<R> {
         match self.current {
             b'>' => {
                 self.next_store()?;
-                Ok(Token::RArrow)
+                Ok(Some(Token::RArrow))
             }
             b => Err(Error::Unexpected(b, b'>')),
         }
@@ -176,23 +176,16 @@ impl<R: Read> Lexer<R> {
 impl<R: Read> Parser<R> {
     fn new(mut lexer: Lexer<R>) -> Result<Parser<R>, Error> {
         let t = lexer.lex()?;
-        Ok(Parser {
-            lexer,
-            current: Some(t),
-        })
+        Ok(Parser { lexer, current: t })
     }
 
     fn lex(&mut self) -> Result<(), Error> {
-        self.current = Some(self.lexer.lex()?);
+        self.current = self.lexer.lex()?;
         Ok(())
     }
 
     fn next(&mut self) -> Result<Option<Token>, Error> {
-        match self.lexer.lex() {
-            Err(ref e) if e.is_eof() => Ok(self.take()),
-            Err(e) => Err(e),
-            Ok(t) => Ok(mem::replace(&mut self.current, Some(t))),
-        }
+        self.lexer.lex().map(|t| mem::replace(&mut self.current, t))
     }
 
     fn take(&mut self) -> Option<Token> {
@@ -204,32 +197,35 @@ impl<R: Read> Parser<R> {
         t.ok_or(Error::EOF)
     }
 
-    fn parse(&mut self) -> Result<Expr, Error> {
+    fn parse(&mut self) -> Result<Option<Expr>, Error> {
         match self.current_or_eof()? {
             &Token::Lambda => {
                 self.lex()?;
-                self.parse_abs()
+                self.parse_abs().map(|x| Some(x))
             }
             _ => self.parse_expr(),
         }
     }
 
-    fn parse_expr(&mut self) -> Result<Expr, Error> {
+    fn parse_expr(&mut self) -> Result<Option<Expr>, Error> {
         self.parse_term()
     }
 
-    fn parse_term(&mut self) -> Result<Expr, Error> {
-        let e0 = self.parse_factor()?.ok_or_else(
-            || match self.current_or_eof() {
-                Ok(t) => Error::expect("factor", t.clone()),
-                Err(e) => e,
-            },
-        )?;
+    fn parse_term(&mut self) -> Result<Option<Expr>, Error> {
+        let e0: Expr;
+        match self.parse_factor()? {
+            Some(e) => e0 = e,
+            None => return Ok(None),
+        }
         let mut v = vec![];
         loop {
             match self.parse_factor()? {
                 Some(e1) => v.push(e1),
-                None => return Ok(v.into_iter().fold(e0, |e, e1| Expr::Term(Term::app(e, e1)))),
+                None => {
+                    return Ok(Some(
+                        v.into_iter().fold(e0, |e, e1| Expr::Term(Term::app(e, e1))),
+                    ))
+                }
             }
         }
     }
@@ -238,7 +234,7 @@ impl<R: Read> Parser<R> {
         macro_rules! proceed {
             ($e:expr) => {
                 {
-                    self.next()?;
+                    self.lex()?;
                     Some(Expr::Term($e))
                 }
             }
@@ -268,12 +264,20 @@ impl<R: Read> Parser<R> {
             expect!("colon", Token::Colon, {
                 let ty = self.parse_type()?;
                 expect!("dot", Token::Dot, {
-                    let body = self.parse()?;
+                    let body = self.parse()?.ok_or(self.expect("expression"))?;
                     return Ok(Expr::Term(Term::Abs(s, ty, Box::new(body))));
                 })
             })
         );
     }
+
+    fn expect(&self, s: &str) -> Error {
+        match self.current {
+            Some(ref t) => Error::expect(s, t.clone()),
+            None => Error::EOF,
+        }
+    }
+
     fn parse_type(&mut self) -> Result<Type, Error> {
         let a = self.parse_atomic_type()?;
         {
@@ -315,8 +319,8 @@ mod tests {
     #[test]
     fn test_lex() {
         let mut l = Lexer::new("a".as_bytes().bytes()).unwrap();
-        assert_eq!(l.lex().ok(), Some(Token::Ident(String::from("a"))));
-        assert!(l.lex().unwrap_err().is_eof());
+        assert_eq!(l.lex().ok(), Some(Some(Token::Ident(String::from("a")))));
+        assert!(l.lex().unwrap().is_none());
     }
 
     #[test]
@@ -328,40 +332,37 @@ mod tests {
         let var = |s| Term(Var(String::from(s)));
         let int = |n| Term(Int(n));
 
-        assert_eq!(parse("x".as_bytes()).ok(), Some(var("x")));
+        macro_rules! assert_parse {
+            ($s:expr, $t:expr) => {
+                assert_eq!(parse($s.as_bytes()).ok(), Some(Some($t)));
+            }
+        }
 
-        assert_eq!(
-            parse("x y".as_bytes()).ok(),
-            Some(Term(Term::app(var("x"), var("y"))))
+        assert_parse!("x", var("x"));
+
+        assert_parse!("x y", Term(Term::app(var("x"), var("y"))));
+
+        assert_parse!(
+            "x y z",
+            Term(Term::app(Term(Term::app(var("x"), var("y"))), var("z")))
         );
 
-        assert_eq!(
-            parse("x y z".as_bytes()).ok(),
-            Some(Term(
-                Term::app(Term(Term::app(var("x"), var("y"))), var("z")),
+        assert_parse!(
+            "\\x:int.12 y 3",
+            Term(Abs(
+                String::from("x"),
+                Type::Int,
+                Box::new(Term(Term::app(Term(Term::app(int(12), var("y"))), int(3))),),
             ))
         );
 
-        assert_eq!(
-            parse("\\x:int.12 y 3".as_bytes()).ok(),
-            Some(Term(Abs(
-                String::from("x"),
-                Type::Int,
-                Box::new(
-                    Term(Term::app(Term(Term::app(int(12), var("y"))), int(3))),
-                ),
-            )))
-        );
-
-        assert_eq!(
-            parse("\\x:int -> int.\\ y : int . 9".as_bytes()).ok(),
-            Some(Term(Abs(
+        assert_parse!(
+            "\\x:int -> int.\\ y : int . 9",
+            Term(Abs(
                 String::from("x"),
                 Type::arr(Type::Int, Type::Int),
-                Box::new(
-                    Term(Abs(String::from("y"), Type::Int, Box::new(int(9)))),
-                ),
-            )))
+                Box::new(Term(Abs(String::from("y"), Type::Int, Box::new(int(9)))),),
+            ))
         );
     }
 }
