@@ -11,14 +11,24 @@ pub enum Error {
     Io(io::Error),
     Unexpected(u8, u8),
     Expect(String, Token),
+    Trailing(Token),
 }
 
-pub fn parse<R>(r: R) -> Result<Option<Expr>, Error>
+pub fn parse<R>(r: R) -> Result<Expr, Error>
 where
     R: Read,
 {
-    let mut buf = Parser::new(r)?;
-    buf.parse()
+    let mut p = Parser::new(r)?;
+    match p.parse()? {
+        Some(e) => {
+            if let Some(t) = p.take() {
+                Err(Error::Trailing(t))
+            } else {
+                Ok(e)
+            }
+        }
+        None => Err(p.expect("expression")),
+    }
 }
 
 struct Position(usize, usize);
@@ -386,6 +396,7 @@ impl fmt::Display for Error {
                 write!(f, "got {:?}, but want {:?}", got as char, want as char)
             }
             Expect(ref s, ref t) => write!(f, "got {:?}, but expected {}", t, s),
+            Trailing(ref t) => write!(f, "trailing {:?}, but expected end of file", t),
         }
     }
 }
