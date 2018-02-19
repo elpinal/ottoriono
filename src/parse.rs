@@ -1,5 +1,6 @@
 use expr::{Expr, Term, Type};
 
+use std::fmt;
 use std::io;
 use std::io::{Bytes, Read};
 use std::mem;
@@ -342,6 +343,20 @@ impl Error {
     }
 }
 
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::Error::*;
+        match *self {
+            EOF => write!(f, "Unexpected end of file."),
+            Io(ref e) => e.fmt(f),
+            Unexpected(got, want) => {
+                write!(f, "Got {:?}, but want {:?}.", got as char, want as char)
+            }
+            Expect(ref s, ref t) => write!(f, "Got {:?}, but expected {}", t, s),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -366,7 +381,7 @@ mod tests {
             ($s:expr, $t:expr) => {
                 match parse($s.as_bytes()) {
                     Ok(x) => assert_eq!(x, Some($t)),
-                    Err(e) => panic!("{:?}", e),
+                    Err(e) => panic!("{}", e),
                 }
             }
         }
