@@ -17,7 +17,7 @@ pub fn parse<R>(r: R) -> Result<Option<Expr>, Error>
 where
     R: Read,
 {
-    let mut buf = Parser::new(Lexer::new(r.bytes())?)?;
+    let mut buf = Parser::new(r)?;
     buf.parse()
 }
 
@@ -195,7 +195,12 @@ impl<R: Read> Lexer<R> {
 }
 
 impl<R: Read> Parser<R> {
-    fn new(mut lexer: Lexer<R>) -> Result<Parser<R>, Error> {
+    fn new(r: R) -> Result<Parser<R>, Error> {
+        let l = Lexer::from_read(r)?;
+        Parser::from_lexer(l)
+    }
+
+    fn from_lexer(mut lexer: Lexer<R>) -> Result<Parser<R>, Error> {
         let t = lexer.lex()?;
         Ok(Parser { lexer, current: t })
     }
