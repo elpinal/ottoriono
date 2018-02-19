@@ -401,9 +401,10 @@ mod tests {
 
         macro_rules! assert_parse {
             ($s:expr, $t:expr) => {
-                match parse($s.as_bytes()) {
+                let mut p = Parser::new($s.as_bytes()).unwrap();
+                match p.parse() {
                     Ok(x) => assert_eq!(x, Some($t)),
-                    Err(e) => panic!("{}", e),
+                    Err(e) => panic!("{} at {}:{}", e, p.lexer.line, p.lexer.column),
                 }
             }
         }
