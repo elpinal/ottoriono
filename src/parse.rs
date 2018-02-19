@@ -25,6 +25,8 @@ struct Lexer<R> {
     b: Bytes<R>,
     current: u8,
     eof: bool,
+    line: usize,
+    column: usize,
 }
 
 struct Parser<R> {
@@ -86,6 +88,8 @@ impl<R: Read> Lexer<R> {
             b,
             current: 0,
             eof: false,
+            line: 0,
+            column: 0,
         };
         l.next_store()?;
         Ok(l)
@@ -101,7 +105,16 @@ impl<R: Read> Lexer<R> {
     }
 
     fn next(&mut self) -> Option<Result<u8, Error>> {
-        self.b.next().map(|r| r.map_err(|e| Error::Io(e)))
+        let ret = self.b.next().map(|r| r.map_err(|e| Error::Io(e)));
+        if let Some(Ok(b)) = ret {
+            if b == b'\n' {
+                self.line += 1;
+                self.column = 0;
+            } else {
+                self.column += 1;
+            }
+        }
+        ret
     }
 
     fn lex(&mut self) -> Result<Option<Token>, Error> {
