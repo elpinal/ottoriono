@@ -184,13 +184,13 @@ impl<R: Read> Lexer<R> {
         if self.eof {
             return Ok(Some(Token::Minus));
         }
-        match self.current {
+        Ok(Some(match self.current {
             b'>' => {
                 self.next_store()?;
-                Ok(Some(Token::RArrow))
+                Token::RArrow
             }
-            b => Err(Error::Unexpected(b, b'>')),
-        }
+            b => Token::Minus,
+        }))
     }
 
     fn skip_whitespace(&mut self) -> Result<(), Error> {
