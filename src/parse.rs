@@ -194,12 +194,11 @@ impl<R: Read> Lexer<R> {
         if self.eof {
             return Ok(Some(Token::Minus));
         }
-        Ok(Some(match self.current {
-            b'>' => {
-                self.next_store()?;
-                Token::RArrow
-            }
-            b => Token::Minus,
+        Ok(Some(if self.current == b'>' {
+            self.next_store()?;
+            Token::RArrow
+        } else {
+            Token::Minus
         }))
     }
 
