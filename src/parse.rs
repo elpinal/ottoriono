@@ -212,6 +212,10 @@ impl<R: Read> Parser<R> {
         Ok(Parser { lexer, current: t })
     }
 
+    fn position(&self) -> Position {
+        self.lexer.position()
+    }
+
     fn lex(&mut self) -> Result<(), Error> {
         self.current = self.lexer.lex()?;
         Ok(())
@@ -417,7 +421,7 @@ mod tests {
                 let mut p = Parser::new($s.as_bytes()).unwrap();
                 match p.parse() {
                     Ok(x) => assert_eq!(x, Some($t)),
-                    Err(e) => panic!("{} at {}:{}", e, p.lexer.line, p.lexer.column),
+                    Err(e) => panic!("{}: {}", p.position(), e),
                 }
             }
         }
