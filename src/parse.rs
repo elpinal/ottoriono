@@ -112,9 +112,10 @@ impl<R: Read> Lexer<R> {
             b if is_digit_start(b) => return self.lex_number(),
             b if is_ident_start(b) => return self.lex_ident(),
             b'\\' => return self.proceed(Token::Lambda),
-            b'-' => return self.lex_right_arrow(),
+            b'-' => return self.lex_hyphen(),
             b':' => return self.proceed(Token::Colon),
             b'.' => return self.proceed(Token::Dot),
+            b'+' => return self.proceed(Token::Plus),
             _ => unimplemented!(),
         }
     }
@@ -153,10 +154,10 @@ impl<R: Read> Lexer<R> {
         Ok(Some(t))
     }
 
-    fn lex_right_arrow(&mut self) -> Result<Option<Token>, Error> {
+    fn lex_hyphen(&mut self) -> Result<Option<Token>, Error> {
         self.next_store()?;
         if self.eof {
-            return Err(Error::EOF);
+            return Ok(Some(Token::Minus));
         }
         match self.current {
             b'>' => {
