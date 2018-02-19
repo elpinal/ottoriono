@@ -31,6 +31,19 @@ struct Parser<R> {
     current: Option<Token>,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum Token {
+    Number(usize),
+    Ident(String),
+    Int,
+    Lambda,
+    RArrow,
+    Colon,
+    Dot,
+    Plus,
+    Minus,
+}
+
 fn is_whitespace(b: u8) -> bool {
     match b {
         b' ' | b'\n' => true,
@@ -64,19 +77,6 @@ fn is_ident(b: u8) -> bool {
         _ if is_ident_start(b) || is_digit(b) => true,
         _ => false,
     }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum Token {
-    Number(usize),
-    Ident(String),
-    Int,
-    Lambda,
-    RArrow,
-    Colon,
-    Dot,
-    Plus,
-    Minus,
 }
 
 impl<R: Read> Lexer<R> {
