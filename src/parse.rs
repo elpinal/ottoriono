@@ -75,6 +75,8 @@ pub enum Token {
     RArrow,
     Colon,
     Dot,
+    Plus,
+    Minus,
 }
 
 impl<R: Read> Lexer<R> {
@@ -208,7 +210,42 @@ impl<R: Read> Parser<R> {
     }
 
     fn parse_expr(&mut self) -> Result<Option<Expr>, Error> {
-        self.parse_term()
+        let mut e0: Expr;
+        match self.parse_term()? {
+            Some(e) => e0 = e,
+            None => return Ok(None),
+        }
+        loop {
+            let t0: Token;
+            match self.parse_binary_operator()? {
+                Some(t) => t0 = t,
+                None => return Ok(Some(e0)),
+            }
+            match self.parse_term()? {
+                Some(e1) => match t0 {
+                    Token::Plus => e0 = Expr::add(e0, e1),
+                    Token::Minus => e0 = Expr::sub(e0, e1),
+                    _ => unreachable!(),
+                },
+                None => {
+                    return Err(self.expect("term"));
+                }
+            }
+        }
+    }
+
+    fn proceed<T>(&mut self, x: T) -> Result<Option<T>, Error> {
+        self.lex()?;
+        Ok(Some(x))
+    }
+
+    fn parse_binary_operator(&mut self) -> Result<Option<Token>, Error> {
+        use self::Token::*;
+        Ok(match self.current {
+            Some(Plus) => self.proceed(Plus)?,
+            Some(Minus) => self.proceed(Minus)?,
+            _ => None,
+        })
     }
 
     fn parse_term(&mut self) -> Result<Option<Expr>, Error> {
@@ -231,17 +268,9 @@ impl<R: Read> Parser<R> {
     }
 
     fn parse_factor(&mut self) -> Result<Option<Expr>, Error> {
-        macro_rules! proceed {
-            ($e:expr) => {
-                {
-                    self.lex()?;
-                    Some(Expr::Term($e))
-                }
-            }
-        }
         Ok(match self.take() {
-            Some(Token::Number(n)) => proceed!(Term::Int(n as isize)),
-            Some(Token::Ident(s)) => proceed!(Term::Var(s)),
+            Some(Token::Number(n)) => self.proceed(Expr::Term(Term::Int(n as isize)))?,
+            Some(Token::Ident(s)) => self.proceed(Expr::Term(Term::Var(s)))?,
             mut current => {
                 mem::swap(&mut self.current, &mut current);
                 None

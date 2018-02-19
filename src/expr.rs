@@ -1,7 +1,7 @@
 #[derive(Debug, PartialEq)]
 pub enum Expr {
-    Add(Box<Expr>, Term),
-    Sub(Box<Expr>, Term),
+    Add(Box<Expr>, Box<Expr>),
+    Sub(Box<Expr>, Box<Expr>),
     Term(Term),
 }
 
@@ -17,6 +17,16 @@ pub enum Term {
 pub enum Type {
     Int,
     Arr(Box<Type>, Box<Type>),
+}
+
+impl Expr {
+    pub fn add(e1: Expr, e2: Expr) -> Expr {
+        Expr::Add(Box::new(e1), Box::new(e2))
+    }
+
+    pub fn sub(e1: Expr, e2: Expr) -> Expr {
+        Expr::Sub(Box::new(e1), Box::new(e2))
+    }
 }
 
 impl Term {
