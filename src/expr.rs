@@ -1,3 +1,5 @@
+use std::fmt;
+
 #[derive(Debug, PartialEq)]
 pub enum Expr {
     Add(Box<Expr>, Box<Expr>),
@@ -26,6 +28,16 @@ impl Expr {
 
     pub fn sub(e1: Expr, e2: Expr) -> Expr {
         Expr::Sub(Box::new(e1), Box::new(e2))
+    }
+}
+
+impl fmt::Display for Type {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::Type::*;
+        match *self {
+            Int => write!(f, "int"),
+            Arr(ref t1, ref t2) => write!(f, "({} -> {})", t1, t2),
+        }
     }
 }
 
