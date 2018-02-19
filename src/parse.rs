@@ -364,7 +364,10 @@ mod tests {
 
         macro_rules! assert_parse {
             ($s:expr, $t:expr) => {
-                assert_eq!(parse($s.as_bytes()).ok(), Some(Some($t)));
+                match parse($s.as_bytes()) {
+                    Ok(x) => assert_eq!(x, Some($t)),
+                    Err(e) => panic!("{:?}", e),
+                }
             }
         }
 
@@ -393,6 +396,13 @@ mod tests {
                 Type::arr(Type::Int, Type::Int),
                 Box::new(Term(Abs(String::from("y"), Type::Int, Box::new(int(9)))),),
             ))
+        );
+
+        assert_parse!("x + y", Expr::add(var("x"), var("y")));
+
+        assert_parse!(
+            "x + y - z",
+            Expr::sub(Expr::add(var("x"), var("y")), var("z"))
         );
     }
 }
