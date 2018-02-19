@@ -369,12 +369,12 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Error::*;
         match *self {
-            EOF => write!(f, "Unexpected end of file."),
+            EOF => write!(f, "unexpected end of file"),
             Io(ref e) => e.fmt(f),
             Unexpected(got, want) => {
-                write!(f, "Got {:?}, but want {:?}.", got as char, want as char)
+                write!(f, "got {:?}, but want {:?}", got as char, want as char)
             }
-            Expect(ref s, ref t) => write!(f, "Got {:?}, but expected {}.", t, s),
+            Expect(ref s, ref t) => write!(f, "got {:?}, but expected {}", t, s),
         }
     }
 }
