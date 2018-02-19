@@ -95,6 +95,10 @@ impl<R: Read> Lexer<R> {
         Ok(l)
     }
 
+    fn from_read(r: R) -> Result<Lexer<R>, Error> {
+        Lexer::new(r.bytes())
+    }
+
     fn next_store(&mut self) -> Result<(), Error> {
         if let Some(r) = self.next() {
             self.current = r?;
