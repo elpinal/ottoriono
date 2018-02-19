@@ -352,7 +352,7 @@ impl fmt::Display for Error {
             Unexpected(got, want) => {
                 write!(f, "Got {:?}, but want {:?}.", got as char, want as char)
             }
-            Expect(ref s, ref t) => write!(f, "Got {:?}, but expected {}", t, s),
+            Expect(ref s, ref t) => write!(f, "Got {:?}, but expected {}.", t, s),
         }
     }
 }
