@@ -31,6 +31,18 @@ impl Expr {
     }
 }
 
+impl fmt::Display for Term {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::Term::*;
+        match *self {
+            Var(ref s) => write!(f, "{}", s),
+            Abs(ref s, ref ty, ref e) => write!(f, "(\\{} : {}. {})", s, ty, e),
+            App(ref e1, ref e2) => write!(f, "({} {})", e1, e2),
+            Int(n) => write!(f, "{}", n),
+        }
+    }
+}
+
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Type::*;
