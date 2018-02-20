@@ -31,6 +31,17 @@ impl Expr {
     }
 }
 
+impl fmt::Display for Expr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::Expr::*;
+        match *self {
+            Add(ref e1, ref e2) => write!(f, "({} + {})", e1, e2),
+            Sub(ref e1, ref e2) => write!(f, "({} - {})", e1, e2),
+            Term(ref t) => write!(f, "{}", t),
+        }
+    }
+}
+
 impl fmt::Display for Term {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Term::*;
