@@ -394,8 +394,8 @@ impl fmt::Display for Error {
             Unexpected(got, want) => {
                 write!(f, "got {:?}, but want {:?}", got as char, want as char)
             }
-            Expect(ref s, ref t) => write!(f, "got {}, but expected {}", t, s),
-            Trailing(ref t) => write!(f, "trailing {}, but expected end of file", t),
+            Expect(ref s, ref t) => write!(f, "got {:#}, but expected {}", t, s),
+            Trailing(ref t) => write!(f, "trailing {:#}, but expected end of file", t),
         }
     }
 }
@@ -409,16 +409,30 @@ impl fmt::Display for Position {
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Token::*;
-        match *self {
-            Number(n) => write!(f, "{}", n),
-            Ident(ref s) => write!(f, "{}", s),
-            Int => write!(f, "int"),
-            Lambda => write!(f, "\\"),
-            RArrow => write!(f, "->"),
-            Colon => write!(f, ":"),
-            Dot => write!(f, "."),
-            Plus => write!(f, "+"),
-            Minus => write!(f, "-"),
+        if f.alternate() {
+            match *self {
+                Number(n) => write!(f, "{}", n),
+                Ident(ref s) => write!(f, "{:?}", s),
+                Int => write!(f, "int"),
+                Lambda => write!(f, "lambda"),
+                RArrow => write!(f, "right arrow"),
+                Colon => write!(f, "colon"),
+                Dot => write!(f, "dot"),
+                Plus => write!(f, "plus"),
+                Minus => write!(f, "minus"),
+            }
+        } else {
+            match *self {
+                Number(n) => write!(f, "{}", n),
+                Ident(ref s) => write!(f, "{}", s),
+                Int => write!(f, "int"),
+                Lambda => write!(f, "\\"),
+                RArrow => write!(f, "->"),
+                Colon => write!(f, ":"),
+                Dot => write!(f, "."),
+                Plus => write!(f, "+"),
+                Minus => write!(f, "-"),
+            }
         }
     }
 }
