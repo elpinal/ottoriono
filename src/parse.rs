@@ -6,7 +6,7 @@ use std::io;
 use std::io::{Bytes, Read};
 use std::mem;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Located<T>(Position, T);
 
 pub type LocatedError = Located<Error>;
@@ -56,7 +56,7 @@ where
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 struct Position(usize, usize);
 
 struct Lexer<R> {
