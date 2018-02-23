@@ -11,7 +11,7 @@ pub struct LocatedError(Position, Error);
 
 impl fmt::Display for LocatedError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)?;
+        write!(f, "{}: ", self.0)?;
         self.1.fmt(f)
     }
 }
