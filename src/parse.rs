@@ -505,7 +505,7 @@ mod tests {
     #[test]
     fn test_lex() {
         let mut l = Lexer::new("a".as_bytes().bytes()).unwrap();
-        assert_eq!(l.lex().ok(), Some(Some(Token::Ident(String::from("a")))));
+        assert_eq!(l.lex().ok(), Some(Some(Located(Position(1, 1), Token::Ident(String::from("a"))))));
         assert!(l.lex().unwrap().is_none());
     }
 
