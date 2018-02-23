@@ -19,7 +19,7 @@ fn run() -> Result<(), Error> {
     let mut buf = String::new();
     loop {
         print!("ottoriono: ");
-        io::stdout().flush().unwrap();
+        io::stdout().flush()?;
 
         stdin.read_line(&mut buf)?;
         println!("{}", parse::parse(buf.as_bytes())?);
