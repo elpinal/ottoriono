@@ -22,7 +22,7 @@ pub enum Error {
     Trailing(Token),
 }
 
-pub fn parse<R>(r: R) -> Result<Expr, Error>
+pub fn parse<R>(r: R) -> Result<Expr, LocatedError>
 where
     R: Read,
 {
@@ -30,7 +30,7 @@ where
     match p.parse()? {
         Some(e) => {
             if let Some(t) = p.take() {
-                Err(Error::Trailing(t))
+                Err(LocatedError(p.position(), Error::Trailing(t)))
             } else {
                 Ok(e)
             }
@@ -103,7 +103,7 @@ fn is_ident(b: u8) -> bool {
 }
 
 impl<R: Read> Lexer<R> {
-    fn new(b: Bytes<R>) -> Result<Lexer<R>, Error> {
+    fn new(b: Bytes<R>) -> Result<Lexer<R>, LocatedError> {
         let mut l = Lexer {
             b,
             current: 0,
@@ -115,7 +115,7 @@ impl<R: Read> Lexer<R> {
         Ok(l)
     }
 
-    fn from_read(r: R) -> Result<Lexer<R>, Error> {
+    fn from_read(r: R) -> Result<Lexer<R>, LocatedError> {
         Lexer::new(r.bytes())
     }
 
@@ -124,7 +124,7 @@ impl<R: Read> Lexer<R> {
         Position(self.line + 1, self.column + 1)
     }
 
-    fn next_store(&mut self) -> Result<(), Error> {
+    fn next_store(&mut self) -> Result<(), LocatedError> {
         if let Some(r) = self.next() {
             self.current = r?;
         } else {
@@ -148,7 +148,7 @@ impl<R: Read> Lexer<R> {
         Some(ret)
     }
 
-    fn lex(&mut self) -> Result<Option<Token>, Error> {
+    fn lex(&mut self) -> Result<Option<Token>, LocatedError> {
         self.skip_whitespace()?;
         if self.eof {
             return Ok(None);
@@ -165,7 +165,7 @@ impl<R: Read> Lexer<R> {
         }
     }
 
-    fn lex_number(&mut self) -> Result<Option<Token>, Error> {
+    fn lex_number(&mut self) -> Result<Option<Token>, LocatedError> {
         let f = |buf: &Lexer<_>| (buf.current - b'0') as usize;
         let mut n = f(self);
         loop {
@@ -177,7 +177,7 @@ impl<R: Read> Lexer<R> {
         }
     }
 
-    fn lex_ident(&mut self) -> Result<Option<Token>, Error> {
+    fn lex_ident(&mut self) -> Result<Option<Token>, LocatedError> {
         let mut vec = vec![];
         vec.push(self.current);
         loop {
@@ -194,12 +194,12 @@ impl<R: Read> Lexer<R> {
         }
     }
 
-    fn proceed(&mut self, t: Token) -> Result<Option<Token>, Error> {
+    fn proceed(&mut self, t: Token) -> Result<Option<Token>, LocatedError> {
         self.next_store()?;
         Ok(Some(t))
     }
 
-    fn lex_hyphen(&mut self) -> Result<Option<Token>, Error> {
+    fn lex_hyphen(&mut self) -> Result<Option<Token>, LocatedError> {
         self.next_store()?;
         if self.eof {
             return Ok(Some(Token::Minus));
@@ -212,7 +212,7 @@ impl<R: Read> Lexer<R> {
         }))
     }
 
-    fn skip_whitespace(&mut self) -> Result<(), Error> {
+    fn skip_whitespace(&mut self) -> Result<(), LocatedError> {
         while !self.eof && is_whitespace(self.current) {
             self.next_store()?;
         }
@@ -221,12 +221,12 @@ impl<R: Read> Lexer<R> {
 }
 
 impl<R: Read> Parser<R> {
-    fn new(r: R) -> Result<Parser<R>, Error> {
+    fn new(r: R) -> Result<Parser<R>, LocatedError> {
         let l = Lexer::from_read(r)?;
         Parser::from_lexer(l)
     }
 
-    fn from_lexer(mut lexer: Lexer<R>) -> Result<Parser<R>, Error> {
+    fn from_lexer(mut lexer: Lexer<R>) -> Result<Parser<R>, LocatedError> {
         let t = lexer.lex()?;
         Ok(Parser { lexer, current: t })
     }
@@ -235,12 +235,12 @@ impl<R: Read> Parser<R> {
         self.lexer.position()
     }
 
-    fn lex(&mut self) -> Result<(), Error> {
+    fn lex(&mut self) -> Result<(), LocatedError> {
         self.current = self.lexer.lex()?;
         Ok(())
     }
 
-    fn next(&mut self) -> Result<Option<Token>, Error> {
+    fn next(&mut self) -> Result<Option<Token>, LocatedError> {
         self.lexer.lex().map(|t| mem::replace(&mut self.current, t))
     }
 
@@ -248,12 +248,12 @@ impl<R: Read> Parser<R> {
         mem::replace(&mut self.current, None)
     }
 
-    fn current_or_eof(&self) -> Result<&Token, Error> {
+    fn current_or_eof(&self) -> Result<&Token, LocatedError> {
         let t: Option<&Token> = self.current.as_ref();
-        t.ok_or(Error::EOF)
+        t.ok_or(LocatedError(self.position(), Error::EOF))
     }
 
-    fn parse(&mut self) -> Result<Option<Expr>, Error> {
+    fn parse(&mut self) -> Result<Option<Expr>, LocatedError> {
         match self.current_or_eof()? {
             &Token::Lambda => {
                 self.lex()?;
@@ -263,7 +263,7 @@ impl<R: Read> Parser<R> {
         }
     }
 
-    fn parse_expr(&mut self) -> Result<Option<Expr>, Error> {
+    fn parse_expr(&mut self) -> Result<Option<Expr>, LocatedError> {
         let mut e0: Expr;
         match self.parse_term()? {
             Some(e) => e0 = e,
@@ -288,12 +288,12 @@ impl<R: Read> Parser<R> {
         }
     }
 
-    fn proceed<T>(&mut self, x: T) -> Result<Option<T>, Error> {
+    fn proceed<T>(&mut self, x: T) -> Result<Option<T>, LocatedError> {
         self.lex()?;
         Ok(Some(x))
     }
 
-    fn parse_binary_operator(&mut self) -> Result<Option<Token>, Error> {
+    fn parse_binary_operator(&mut self) -> Result<Option<Token>, LocatedError> {
         use self::Token::*;
         Ok(match self.current {
             Some(Plus) => self.proceed(Plus)?,
@@ -302,7 +302,7 @@ impl<R: Read> Parser<R> {
         })
     }
 
-    fn parse_term(&mut self) -> Result<Option<Expr>, Error> {
+    fn parse_term(&mut self) -> Result<Option<Expr>, LocatedError> {
         let e0: Expr;
         match self.parse_factor()? {
             Some(e) => e0 = e,
@@ -321,7 +321,7 @@ impl<R: Read> Parser<R> {
         }
     }
 
-    fn parse_factor(&mut self) -> Result<Option<Expr>, Error> {
+    fn parse_factor(&mut self) -> Result<Option<Expr>, LocatedError> {
         Ok(match self.take() {
             Some(Token::Number(n)) => self.proceed(Expr::Term(Term::Int(n as isize)))?,
             Some(Token::Ident(s)) => self.proceed(Expr::Term(Term::Var(s)))?,
@@ -332,12 +332,12 @@ impl<R: Read> Parser<R> {
         })
     }
 
-    fn parse_abs(&mut self) -> Result<Expr, Error> {
+    fn parse_abs(&mut self) -> Result<Expr, LocatedError> {
         macro_rules! expect {
             ($t:expr, $p:pat, $body:expr) => {
-                match self.next()?.ok_or(Error::EOF)? {
+                match self.next()?.ok_or(LocatedError(self.position(), Error::EOF))? {
                     $p => $body,
-                    t => return Err(Error::expect($t, t)),
+                    t => return Err(LocatedError(self.position(), Error::expect($t, t))),
                 }
             }
         }
@@ -354,14 +354,17 @@ impl<R: Read> Parser<R> {
         );
     }
 
-    fn expect(&self, s: &str) -> Error {
-        match self.current {
-            Some(ref t) => Error::expect(s, t.clone()),
-            None => Error::EOF,
-        }
+    fn expect(&self, s: &str) -> LocatedError {
+        LocatedError(
+            self.position(),
+            match self.current {
+                Some(ref t) => Error::expect(s, t.clone()),
+                None => Error::EOF,
+            },
+        )
     }
 
-    fn parse_type(&mut self) -> Result<Type, Error> {
+    fn parse_type(&mut self) -> Result<Type, LocatedError> {
         let a = self.parse_atomic_type()?;
         {
             if self.current != Some(Token::RArrow) {
@@ -373,11 +376,16 @@ impl<R: Read> Parser<R> {
         Ok(Type::Arr(Box::new(a), Box::new(ty)))
     }
 
-    fn parse_atomic_type(&mut self) -> Result<Type, Error> {
+    fn parse_atomic_type(&mut self) -> Result<Type, LocatedError> {
+        macro_rules! err {
+            ($e:expr) => {
+                Err(LocatedError(self.position(), $e))
+            }
+        }
         match self.next()? {
             Some(Token::Int) => Ok(Type::Int),
-            Some(t) => Err(Error::expect("atomic type", t)),
-            None => Err(Error::EOF),
+            Some(t) => err!(Error::expect("atomic type", t)),
+            None => err!(Error::EOF),
         }
     }
 }
