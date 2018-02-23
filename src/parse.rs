@@ -1,5 +1,6 @@
 use expr::{Expr, Term, Type};
 
+use std::error;
 use std::fmt;
 use std::io;
 use std::io::{Bytes, Read};
@@ -420,6 +421,19 @@ impl fmt::Display for Error {
             }
             Expect(ref s, ref t) => write!(f, "got {:#}, but expected {}", t, s),
             Trailing(ref t) => write!(f, "trailing {:#}, but expected end of file", t),
+        }
+    }
+}
+
+impl error::Error for Error {
+    fn description(&self) -> &str {
+        use self::Error::*;
+        match *self {
+            EOF => "unexpected end of file",
+            Io(ref e) => e.description(),
+            Unexpected(..) => "given an unexpected byte whereas another byte expected",
+            Expect(..) => "expected an expression denoted by a string, but got a token",
+            Trailing(..) => "given a trailing token, but expected end of file",
         }
     }
 }
