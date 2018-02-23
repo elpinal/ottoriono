@@ -7,7 +7,9 @@ use std::io::{Bytes, Read};
 use std::mem;
 
 #[derive(Debug)]
-pub struct LocatedError(Position, Error);
+pub struct Located<T>(Position, T);
+
+pub type LocatedError = Located<Error>;
 
 impl fmt::Display for LocatedError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -45,7 +47,7 @@ where
     match p.parse()? {
         Some(e) => {
             if let Some(t) = p.take() {
-                Err(LocatedError(p.position(), Error::Trailing(t)))
+                Err(Located(p.position(), Error::Trailing(t)))
             } else {
                 Ok(e)
             }
@@ -152,7 +154,7 @@ impl<R: Read> Lexer<R> {
     fn next(&mut self) -> Option<Result<u8, LocatedError>> {
         let ret = self.b
             .next()?
-            .map_err(|e| LocatedError(self.position(), Error::Io(e)));
+            .map_err(|e| Located(self.position(), Error::Io(e)));
         if let Ok(b) = ret {
             if b == b'\n' {
                 self.line += 1;
@@ -266,7 +268,7 @@ impl<R: Read> Parser<R> {
 
     fn current_or_eof(&self) -> Result<&Token, LocatedError> {
         let t: Option<&Token> = self.current.as_ref();
-        t.ok_or(LocatedError(self.position(), Error::EOF))
+        t.ok_or(Located(self.position(), Error::EOF))
     }
 
     fn parse(&mut self) -> Result<Option<Expr>, LocatedError> {
@@ -351,9 +353,9 @@ impl<R: Read> Parser<R> {
     fn parse_abs(&mut self) -> Result<Expr, LocatedError> {
         macro_rules! expect {
             ($t:expr, $p:pat, $body:expr) => {
-                match self.next()?.ok_or(LocatedError(self.position(), Error::EOF))? {
+                match self.next()?.ok_or(Located(self.position(), Error::EOF))? {
                     $p => $body,
-                    t => return Err(LocatedError(self.position(), Error::expect($t, t))),
+                    t => return Err(Located(self.position(), Error::expect($t, t))),
                 }
             }
         }
@@ -371,7 +373,7 @@ impl<R: Read> Parser<R> {
     }
 
     fn expect(&self, s: &str) -> LocatedError {
-        LocatedError(
+        Located(
             self.position(),
             match self.current {
                 Some(ref t) => Error::expect(s, t.clone()),
@@ -395,7 +397,7 @@ impl<R: Read> Parser<R> {
     fn parse_atomic_type(&mut self) -> Result<Type, LocatedError> {
         macro_rules! err {
             ($e:expr) => {
-                Err(LocatedError(self.position(), $e))
+                Err(Located(self.position(), $e))
             }
         }
         match self.next()? {
