@@ -6,7 +6,21 @@ use std::io;
 use std::io::{Bytes, Read};
 use std::mem;
 
+#[derive(Debug)]
 pub struct LocatedError(Position, Error);
+
+impl fmt::Display for LocatedError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)?;
+        self.1.fmt(f)
+    }
+}
+
+impl error::Error for LocatedError {
+    fn description(&self) -> &str {
+        self.1.description()
+    }
+}
 
 impl From<LocatedError> for Error {
     fn from(e: LocatedError) -> Error {
@@ -40,6 +54,7 @@ where
     }
 }
 
+#[derive(Debug)]
 struct Position(usize, usize);
 
 struct Lexer<R> {
