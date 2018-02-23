@@ -133,9 +133,11 @@ impl<R: Read> Lexer<R> {
         Ok(())
     }
 
-    fn next(&mut self) -> Option<Result<u8, Error>> {
-        let ret = self.b.next().map(|r| r.map_err(|e| Error::Io(e)));
-        if let Some(Ok(b)) = ret {
+    fn next(&mut self) -> Option<Result<u8, LocatedError>> {
+        let ret = self.b
+            .next()?
+            .map_err(|e| LocatedError(self.position(), Error::Io(e)));
+        if let Ok(b) = ret {
             if b == b'\n' {
                 self.line += 1;
                 self.column = 0;
@@ -143,7 +145,7 @@ impl<R: Read> Lexer<R> {
                 self.column += 1;
             }
         }
-        ret
+        Some(ret)
     }
 
     fn lex(&mut self) -> Result<Option<Token>, Error> {
