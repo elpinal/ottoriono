@@ -4,12 +4,13 @@ use ottoriono::parse;
 use ottoriono::parse::Error;
 
 use std::io;
-use std::process::exit;
+use std::io::Write;
 
 fn main() {
-    if let Err(e) = run() {
-        eprintln!("{}", e);
-        exit(1);
+    loop {
+        if let Err(e) = run() {
+            eprintln!("{}", e);
+        }
     }
 }
 
@@ -17,8 +18,12 @@ fn run() -> Result<(), Error> {
     let stdin = io::stdin();
     let mut buf = String::new();
     loop {
+        print!("ottoriono: ");
+        io::stdout().flush().unwrap();
+
         stdin.read_line(&mut buf)?;
         println!("{}", parse::parse(buf.as_bytes())?);
+
         buf.truncate(0);
     }
 }
