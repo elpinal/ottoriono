@@ -121,16 +121,25 @@ fn is_ident(b: u8) -> bool {
 }
 
 impl<R: Read> Lexer<R> {
-    fn new(b: Bytes<R>) -> Result<Lexer<R>, LocatedError> {
-        let mut l = Lexer {
+    fn new(mut b: Bytes<R>) -> Result<Lexer<R>, LocatedError> {
+        let mut eof = false;
+        let mut current = 0;
+        match b.next() {
+            None => eof = true,
+            Some(Err(e)) => {
+                return Err(Located(Position(1, 1), Error::from(e)));
+            }
+            Some(Ok(u)) => {
+                current = u;
+            }
+        }
+        Ok(Lexer {
             b,
-            current: 0,
-            eof: false,
+            current,
+            eof,
             line: 0,
             column: 0,
-        };
-        l.next_store()?;
-        Ok(l)
+        })
     }
 
     fn from_read(r: R) -> Result<Lexer<R>, LocatedError> {
