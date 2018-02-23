@@ -47,7 +47,7 @@ where
     match p.parse()? {
         Some(e) => {
             if let Some(t) = p.take() {
-                Err(Located(p.position(), Error::Trailing(t)))
+                Err(Located(t.0, Error::Trailing(t.1)))
             } else {
                 Ok(e)
             }
@@ -69,7 +69,7 @@ struct Lexer<R> {
 
 struct Parser<R> {
     lexer: Lexer<R>,
-    current: Option<Token>,
+    current: Option<Located<Token>>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -166,19 +166,25 @@ impl<R: Read> Lexer<R> {
         Some(ret)
     }
 
-    fn lex(&mut self) -> Result<Option<Token>, LocatedError> {
+    fn lex(&mut self) -> Result<Option<Located<Token>>, LocatedError> {
         self.skip_whitespace()?;
         if self.eof {
             return Ok(None);
         }
+        let p = self.position();
+        macro_rules! ret {
+            ($x:expr) => {
+                return $x.map(|o| o.map(|t| Located(p, t)));
+            }
+        }
         match self.current {
-            b if is_digit_start(b) => return self.lex_number(),
-            b if is_ident_start(b) => return self.lex_ident(),
-            b'\\' => return self.proceed(Token::Lambda),
-            b'-' => return self.lex_hyphen(),
-            b':' => return self.proceed(Token::Colon),
-            b'.' => return self.proceed(Token::Dot),
-            b'+' => return self.proceed(Token::Plus),
+            b if is_digit_start(b) => ret!(self.lex_number()),
+            b if is_ident_start(b) => ret!(self.lex_ident()),
+            b'\\' => ret!(self.proceed(Token::Lambda)),
+            b'-' => ret!(self.lex_hyphen()),
+            b':' => ret!(self.proceed(Token::Colon)),
+            b'.' => ret!(self.proceed(Token::Dot)),
+            b'+' => ret!(self.proceed(Token::Plus)),
             _ => unimplemented!(),
         }
     }
@@ -258,22 +264,22 @@ impl<R: Read> Parser<R> {
         Ok(())
     }
 
-    fn next(&mut self) -> Result<Option<Token>, LocatedError> {
+    fn next(&mut self) -> Result<Option<Located<Token>>, LocatedError> {
         self.lexer.lex().map(|t| mem::replace(&mut self.current, t))
     }
 
-    fn take(&mut self) -> Option<Token> {
+    fn take(&mut self) -> Option<Located<Token>> {
         mem::replace(&mut self.current, None)
     }
 
-    fn current_or_eof(&self) -> Result<&Token, LocatedError> {
-        let t: Option<&Token> = self.current.as_ref();
+    fn current_or_eof(&self) -> Result<&Located<Token>, LocatedError> {
+        let t = self.current.as_ref();
         t.ok_or(Located(self.position(), Error::EOF))
     }
 
     fn parse(&mut self) -> Result<Option<Expr>, LocatedError> {
-        match self.current_or_eof()? {
-            &Token::Lambda => {
+        match self.current_or_eof()?.1 {
+            Token::Lambda => {
                 self.lex()?;
                 self.parse_abs().map(|x| Some(x))
             }
@@ -314,8 +320,8 @@ impl<R: Read> Parser<R> {
     fn parse_binary_operator(&mut self) -> Result<Option<Token>, LocatedError> {
         use self::Token::*;
         Ok(match self.current {
-            Some(Plus) => self.proceed(Plus)?,
-            Some(Minus) => self.proceed(Minus)?,
+            Some(Located(_, Plus)) => self.proceed(Plus)?,
+            Some(Located(_, Minus)) => self.proceed(Minus)?,
             _ => None,
         })
     }
@@ -341,8 +347,8 @@ impl<R: Read> Parser<R> {
 
     fn parse_factor(&mut self) -> Result<Option<Expr>, LocatedError> {
         Ok(match self.take() {
-            Some(Token::Number(n)) => self.proceed(Expr::Term(Term::Int(n as isize)))?,
-            Some(Token::Ident(s)) => self.proceed(Expr::Term(Term::Var(s)))?,
+            Some(Located(_, Token::Number(n))) => self.proceed(Expr::Term(Term::Int(n as isize)))?,
+            Some(Located(_, Token::Ident(s))) => self.proceed(Expr::Term(Term::Var(s)))?,
             mut current => {
                 mem::swap(&mut self.current, &mut current);
                 None
@@ -354,8 +360,8 @@ impl<R: Read> Parser<R> {
         macro_rules! expect {
             ($t:expr, $p:pat, $body:expr) => {
                 match self.next()?.ok_or(Located(self.position(), Error::EOF))? {
-                    $p => $body,
-                    t => return Err(Located(self.position(), Error::expect($t, t))),
+                    Located(_, $p) => $body,
+                    t => return Err(Located(t.0, Error::expect($t, t.1))),
                 }
             }
         }
@@ -376,7 +382,7 @@ impl<R: Read> Parser<R> {
         Located(
             self.position(),
             match self.current {
-                Some(ref t) => Error::expect(s, t.clone()),
+                Some(ref t) => Error::expect(s, t.1.clone()),
                 None => Error::EOF,
             },
         )
@@ -385,7 +391,7 @@ impl<R: Read> Parser<R> {
     fn parse_type(&mut self) -> Result<Type, LocatedError> {
         let a = self.parse_atomic_type()?;
         {
-            if self.current != Some(Token::RArrow) {
+            if let Some(Located(_, Token::RArrow)) = self.current {
                 return Ok(a);
             }
         }
@@ -401,8 +407,8 @@ impl<R: Read> Parser<R> {
             }
         }
         match self.next()? {
-            Some(Token::Int) => Ok(Type::Int),
-            Some(t) => err!(Error::expect("atomic type", t)),
+            Some(Located(_, Token::Int)) => Ok(Type::Int),
+            Some(t) => Err(Located(t.0, Error::expect("atomic type", t.1))),
             None => err!(Error::EOF),
         }
     }
