@@ -1,8 +1,9 @@
 extern crate ottoriono;
 
 use ottoriono::parse;
-use ottoriono::parse::Error;
+use ottoriono::parse::LocatedError;
 
+use std::error;
 use std::io;
 use std::io::Write;
 
@@ -14,7 +15,7 @@ fn main() {
     }
 }
 
-fn run() -> Result<(), Error> {
+fn run() -> Result<(), Box<error::Error>> {
     let stdin = io::stdin();
     let mut buf = String::new();
     loop {
