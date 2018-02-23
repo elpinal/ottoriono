@@ -5,6 +5,14 @@ use std::io;
 use std::io::{Bytes, Read};
 use std::mem;
 
+pub struct LocatedError(Position, Error);
+
+impl From<LocatedError> for Error {
+    fn from(e: LocatedError) -> Error {
+        e.1
+    }
+}
+
 #[derive(Debug)]
 pub enum Error {
     EOF,
