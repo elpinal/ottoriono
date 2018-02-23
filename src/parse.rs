@@ -400,8 +400,10 @@ impl<R: Read> Parser<R> {
     fn parse_type(&mut self) -> Result<Type, LocatedError> {
         let a = self.parse_atomic_type()?;
         {
-            if let Some(Located(_, Token::RArrow)) = self.current {
-                return Ok(a);
+            if let Some(ref l) = self.current {
+                if l.1 != Token::RArrow {
+                    return Ok(a);
+                }
             }
         }
         self.lex()?;
