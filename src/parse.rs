@@ -5,6 +5,7 @@ use std::fmt;
 use std::io;
 use std::io::{Bytes, Read};
 use std::mem;
+use std::ops::Deref;
 
 enum Parse<T> {
     Parsed(T),
@@ -27,6 +28,14 @@ impl<T> Parse<T> {
 pub struct Located<T>(Position, T);
 
 pub type LocatedError = Located<Error>;
+
+impl<T> Deref for Located<T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        &self.1
+    }
+}
 
 impl fmt::Display for LocatedError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -404,25 +413,29 @@ impl<R: Read> Parser<R> {
     fn parse_type(&mut self) -> Result<Type, LocatedError> {
         let a = self.parse_atomic_type()?;
         {
-            if self.current.as_ref().map(|l| &l.1) != Some(&Token::RArrow) {
+            if self.current.as_ref().map_or(true, |l| !l.is_right_arrow()) {
                 return Ok(a);
             }
         }
         self.lex()?;
-        let ty = self.parse_type()?;
-        Ok(Type::Arr(Box::new(a), Box::new(ty)))
+        Ok(Type::arr(a, self.parse_type()?))
     }
 
     fn parse_atomic_type(&mut self) -> Result<Type, LocatedError> {
-        macro_rules! err {
-            ($e:expr) => {
-                Err(Located(self.position(), $e))
-            }
-        }
+        use self::Parse::*;
         match self.next()? {
-            Some(Located(_, Token::Int)) => Ok(Type::Int),
-            Some(t) => Err(Located(t.0, Error::expect("atomic type", t.1))),
-            None => err!(Error::EOF),
+            Some(Located(_, Token::Int)) => Parsed(Type::Int),
+            Some(l) => Other(l),
+            None => EOF(self.position()),
+        }.ok_or("atomic type")
+    }
+}
+
+impl Token {
+    fn is_right_arrow(&self) -> bool {
+        match *self {
+            Token::RArrow => true,
+            _ => false,
         }
     }
 }
