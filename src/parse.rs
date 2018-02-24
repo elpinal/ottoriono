@@ -576,10 +576,9 @@ mod tests {
 
         macro_rules! assert_parse {
             ($s:expr, $t:expr) => {
-                let mut p = Parser::new($s.as_bytes()).unwrap();
-                match p.parse() {
-                    Ok(x) => assert_eq!(x, Some($t)),
-                    Err(e) => panic!("{}: {}", p.position(), e),
+                match parse($s.as_bytes()) {
+                    Ok(x) => assert_eq!(x, $t),
+                    Err(e) => panic!("{}", e),
                 }
             }
         }
