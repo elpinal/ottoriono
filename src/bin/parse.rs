@@ -1,7 +1,6 @@
 extern crate ottoriono;
 
 use ottoriono::parse;
-use ottoriono::parse::LocatedError;
 
 use std::error;
 use std::io;

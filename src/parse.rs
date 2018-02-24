@@ -34,7 +34,6 @@ impl From<LocatedError> for Error {
 pub enum Error {
     EOF,
     Io(io::Error),
-    Unexpected(u8, u8),
     Expect(String, Token),
     Trailing(Token),
     Illegal(u8),
@@ -449,9 +448,6 @@ impl fmt::Display for Error {
         match *self {
             EOF => write!(f, "unexpected end of file"),
             Io(ref e) => e.fmt(f),
-            Unexpected(got, want) => {
-                write!(f, "got {:?}, but want {:?}", got as char, want as char)
-            }
             Expect(ref s, ref t) => write!(f, "got {:#}, but expected {}", t, s),
             Trailing(ref t) => write!(f, "trailing {:#}, but expected end of file", t),
             Illegal(b) => write!(f, "illegal byte {:?}", b as char),
@@ -465,7 +461,6 @@ impl error::Error for Error {
         match *self {
             EOF => "unexpected end of file",
             Io(ref e) => e.description(),
-            Unexpected(..) => "given an unexpected byte whereas another byte expected",
             Expect(..) => "expected an expression denoted by a string, but got a token",
             Trailing(..) => "given a trailing token, but expected end of file",
             Illegal(..) => "given an illegal byte",
