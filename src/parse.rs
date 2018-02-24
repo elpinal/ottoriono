@@ -202,7 +202,7 @@ impl<R: Read> Lexer<R> {
         let p = self.position();
         macro_rules! ret {
             ($x:expr) => {
-                return $x.map(|o| o.map(|t| Located(p, t)));
+                $x.map(|o| o.map(|t| Located(p, t)))
             }
         }
         match self.current {
@@ -213,7 +213,7 @@ impl<R: Read> Lexer<R> {
             b':' => ret!(self.proceed(Colon)),
             b'.' => ret!(self.proceed(Dot)),
             b'+' => ret!(self.proceed(BinOp(BinOpKind::Plus))),
-            b => return Err(Located(p, Error::Illegal(b))),
+            b => Err(Located(p, Error::Illegal(b))),
         }
     }
 
@@ -253,14 +253,11 @@ impl<R: Read> Lexer<R> {
 
     fn lex_hyphen(&mut self) -> Result<Option<Token>, LocatedError> {
         self.next_store()?;
-        if self.eof {
-            return Ok(Some(Token::BinOp(BinOpKind::Minus)));
-        }
-        Ok(Some(if self.current == b'>' {
+        Ok(Some(if self.eof || self.current != b'>' {
+            Token::BinOp(BinOpKind::Minus)
+        } else {
             self.next_store()?;
             Token::RArrow
-        } else {
-            Token::BinOp(BinOpKind::Minus)
         }))
     }
 
@@ -402,16 +399,6 @@ impl<R: Read> Parser<R> {
                 })
             })
         );
-    }
-
-    fn expect(&self, s: &str) -> LocatedError {
-        Located(
-            self.position(),
-            match self.current {
-                Some(ref t) => Error::expect(s, t.1.clone()),
-                None => Error::EOF,
-            },
-        )
     }
 
     fn parse_type(&mut self) -> Result<Type, LocatedError> {
