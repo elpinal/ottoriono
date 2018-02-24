@@ -370,7 +370,7 @@ impl<R: Read> Parser<R> {
             ($t:expr, $p:pat, $body:expr) => {
                 match self.next()?.ok_or(Located(self.position(), Error::EOF))? {
                     Located(_, $p) => $body,
-                    t => return Err(Located(t.0, Error::expect($t, t.1))),
+                    Located(p, t) => return Err(Located(p, Error::expect($t, t))),
                 }
             }
         }
@@ -518,6 +518,17 @@ mod tests {
                 Position(1, 1),
                 Token::Ident(String::from("a"))
             )))
+        );
+        assert!(l.lex().unwrap().is_none());
+
+        let mut l = Lexer::new("..".as_bytes().bytes()).unwrap();
+        assert_eq!(
+            l.lex().ok(),
+            Some(Some(Located(Position(1, 1), Token::Dot)))
+        );
+        assert_eq!(
+            l.lex().ok(),
+            Some(Some(Located(Position(1, 2), Token::Dot)))
         );
         assert!(l.lex().unwrap().is_none());
     }
