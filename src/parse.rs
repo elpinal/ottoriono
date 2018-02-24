@@ -19,7 +19,7 @@ impl<T> Parse<T> {
         match self {
             Parsed(t) => Ok(t),
             Other(Located(p, t)) => Err(Located(p, Error::expect(s, t))),
-            EOF(p) => Err(Located(p, Error::EOF)),
+            EOF(p) => Err(Located(p, Error::EOF(s.to_string()))),
         }
     }
 }
@@ -58,7 +58,7 @@ impl From<LocatedError> for Error {
 
 #[derive(Debug)]
 pub enum Error {
-    EOF,
+    EOF(String),
     Io(io::Error),
     Expect(String, Token),
     Trailing(Token),
@@ -306,13 +306,13 @@ impl<R: Read> Parser<R> {
         mem::replace(&mut self.current, None)
     }
 
-    fn current_or_eof(&self) -> Result<&Located<Token>, LocatedError> {
+    fn current_or_eof(&self, s: &str) -> Result<&Located<Token>, LocatedError> {
         let t = self.current.as_ref();
-        t.ok_or(Located(self.position(), Error::EOF))
+        t.ok_or(Located(self.position(), Error::EOF(s.to_string())))
     }
 
     fn parse(&mut self) -> Result<Parse<Expr>, LocatedError> {
-        match self.current_or_eof()?.1 {
+        match self.current_or_eof("expression")?.1 {
             Token::Lambda => {
                 self.lex()?;
                 self.parse_abs().map(|x| Parse::Parsed(x))
@@ -391,7 +391,7 @@ impl<R: Read> Parser<R> {
     fn parse_abs(&mut self) -> Result<Expr, LocatedError> {
         macro_rules! expect {
             ($t:expr, $p:pat, $body:expr) => {
-                match self.next()?.ok_or(Located(self.position(), Error::EOF))? {
+                match self.next()?.ok_or(Located(self.position(), Error::EOF($t.to_string())))? {
                     Located(_, $p) => $body,
                     Located(p, t) => return Err(Located(p, Error::expect($t, t))),
                 }
@@ -447,7 +447,7 @@ impl Error {
 
     fn is_eof(&self) -> bool {
         match *self {
-            Error::EOF => true,
+            Error::EOF(_) => true,
             _ => false,
         }
     }
@@ -463,7 +463,7 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Error::*;
         match *self {
-            EOF => write!(f, "unexpected end of file"),
+            EOF(ref s) => write!(f, "unexpected end of file, but want {}", s),
             Io(ref e) => e.fmt(f),
             Expect(ref s, ref t) => write!(f, "got {:#}, but expected {}", t, s),
             Trailing(ref t) => write!(f, "trailing {:#}, but expected end of file", t),
@@ -476,7 +476,7 @@ impl error::Error for Error {
     fn description(&self) -> &str {
         use self::Error::*;
         match *self {
-            EOF => "unexpected end of file",
+            EOF(..) => "unexpected end of file whereas expected an expression denoted by a string",
             Io(ref e) => e.description(),
             Expect(..) => "expected an expression denoted by a string, but got a token",
             Trailing(..) => "given a trailing token, but expected end of file",
