@@ -60,7 +60,6 @@ pub fn parse<R>(r: R) -> Result<Expr, LocatedError>
 where
     R: Read,
 {
-    use self::Parse::*;
     let mut p = Parser::new(r)?;
     let e = p.parse()?.ok_or("expression")?;
     if let Some(t) = p.take() {
@@ -95,6 +94,11 @@ pub enum Token {
     RArrow,
     Colon,
     Dot,
+    BinOp(BinOpKind),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum BinOpKind {
     Plus,
     Minus,
 }
@@ -190,6 +194,7 @@ impl<R: Read> Lexer<R> {
     }
 
     fn lex(&mut self) -> Result<Option<Located<Token>>, LocatedError> {
+        use self::Token::*;
         self.skip_whitespace()?;
         if self.eof {
             return Ok(None);
@@ -203,11 +208,11 @@ impl<R: Read> Lexer<R> {
         match self.current {
             b if is_digit_start(b) => ret!(self.lex_number()),
             b if is_ident_start(b) => ret!(self.lex_ident()),
-            b'\\' => ret!(self.proceed(Token::Lambda)),
+            b'\\' => ret!(self.proceed(Lambda)),
             b'-' => ret!(self.lex_hyphen()),
-            b':' => ret!(self.proceed(Token::Colon)),
-            b'.' => ret!(self.proceed(Token::Dot)),
-            b'+' => ret!(self.proceed(Token::Plus)),
+            b':' => ret!(self.proceed(Colon)),
+            b'.' => ret!(self.proceed(Dot)),
+            b'+' => ret!(self.proceed(BinOp(BinOpKind::Plus))),
             b => return Err(Located(p, Error::Illegal(b))),
         }
     }
@@ -249,13 +254,13 @@ impl<R: Read> Lexer<R> {
     fn lex_hyphen(&mut self) -> Result<Option<Token>, LocatedError> {
         self.next_store()?;
         if self.eof {
-            return Ok(Some(Token::Minus));
+            return Ok(Some(Token::BinOp(BinOpKind::Minus)));
         }
         Ok(Some(if self.current == b'>' {
             self.next_store()?;
             Token::RArrow
         } else {
-            Token::Minus
+            Token::BinOp(BinOpKind::Minus)
         }))
     }
 
@@ -318,16 +323,15 @@ impl<R: Read> Parser<R> {
             p => return Ok(p),
         }
         loop {
-            let t0: Token;
+            let k0: BinOpKind;
             match self.parse_binary_operator()? {
-                Parsed(t) => t0 = t,
+                Parsed(k) => k0 = k,
                 _ => return Ok(Parsed(e0)),
             }
             let e1 = self.parse_term()?.ok_or("term")?;
-            match t0 {
-                Token::Plus => e0 = Expr::add(e0, e1),
-                Token::Minus => e0 = Expr::sub(e0, e1),
-                _ => unreachable!(),
+            match k0 {
+                BinOpKind::Plus => e0 = Expr::add(e0, e1),
+                BinOpKind::Minus => e0 = Expr::sub(e0, e1),
             }
         }
     }
@@ -337,11 +341,10 @@ impl<R: Read> Parser<R> {
         Ok(Parse::Parsed(x))
     }
 
-    fn parse_binary_operator(&mut self) -> Result<Parse<Token>, LocatedError> {
+    fn parse_binary_operator(&mut self) -> Result<Parse<BinOpKind>, LocatedError> {
         use self::Token::*;
         Ok(match self.current {
-            Some(Located(_, Plus)) => self.proceed(Plus)?,
-            Some(Located(_, Minus)) => self.proceed(Minus)?,
+            Some(Located(_, BinOp(k))) => self.proceed(k)?,
             Some(ref t) => Parse::Other(t.clone()),
             None => Parse::EOF(self.position()),
         })
@@ -500,8 +503,7 @@ impl fmt::Display for Token {
                 RArrow => write!(f, "right arrow"),
                 Colon => write!(f, "colon"),
                 Dot => write!(f, "dot"),
-                Plus => write!(f, "plus"),
-                Minus => write!(f, "minus"),
+                BinOp(ref k) => k.fmt(f),
             }
         } else {
             match *self {
@@ -512,6 +514,22 @@ impl fmt::Display for Token {
                 RArrow => write!(f, "->"),
                 Colon => write!(f, ":"),
                 Dot => write!(f, "."),
+                BinOp(ref k) => k.fmt(f),
+            }
+        }
+    }
+}
+
+impl fmt::Display for BinOpKind {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::BinOpKind::*;
+        if f.alternate() {
+            match *self {
+                Plus => write!(f, "plus"),
+                Minus => write!(f, "minus"),
+            }
+        } else {
+            match *self {
                 Plus => write!(f, "+"),
                 Minus => write!(f, "-"),
             }
