@@ -6,7 +6,24 @@ use std::io;
 use std::io::{Bytes, Read};
 use std::mem;
 
-#[derive(Debug, PartialEq)]
+enum Parse<T> {
+    Parsed(T),
+    Other(Located<Token>),
+    EOF(Position),
+}
+
+impl<T> Parse<T> {
+    fn ok_or(self, s: &str) -> Result<T, LocatedError> {
+        use self::Parse::*;
+        match self {
+            Parsed(t) => Ok(t),
+            Other(Located(p, t)) => Err(Located(p, Error::expect(s, t))),
+            EOF(p) => Err(Located(p, Error::EOF)),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct Located<T>(Position, T);
 
 pub type LocatedError = Located<Error>;
@@ -43,20 +60,17 @@ pub fn parse<R>(r: R) -> Result<Expr, LocatedError>
 where
     R: Read,
 {
+    use self::Parse::*;
     let mut p = Parser::new(r)?;
-    match p.parse()? {
-        Some(e) => {
-            if let Some(t) = p.take() {
-                Err(Located(t.0, Error::Trailing(t.1)))
-            } else {
-                Ok(e)
-            }
-        }
-        None => Err(p.expect("expression")),
+    let e = p.parse()?.ok_or("expression")?;
+    if let Some(t) = p.take() {
+        Err(Located(t.0, Error::Trailing(t.1)))
+    } else {
+        Ok(e)
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 struct Position(usize, usize);
 
 struct Lexer<R> {
@@ -286,67 +300,66 @@ impl<R: Read> Parser<R> {
         t.ok_or(Located(self.position(), Error::EOF))
     }
 
-    fn parse(&mut self) -> Result<Option<Expr>, LocatedError> {
+    fn parse(&mut self) -> Result<Parse<Expr>, LocatedError> {
         match self.current_or_eof()?.1 {
             Token::Lambda => {
                 self.lex()?;
-                self.parse_abs().map(|x| Some(x))
+                self.parse_abs().map(|x| Parse::Parsed(x))
             }
             _ => self.parse_expr(),
         }
     }
 
-    fn parse_expr(&mut self) -> Result<Option<Expr>, LocatedError> {
+    fn parse_expr(&mut self) -> Result<Parse<Expr>, LocatedError> {
+        use self::Parse::*;
         let mut e0: Expr;
         match self.parse_term()? {
-            Some(e) => e0 = e,
-            None => return Ok(None),
+            Parsed(e) => e0 = e,
+            p => return Ok(p),
         }
         loop {
             let t0: Token;
             match self.parse_binary_operator()? {
-                Some(t) => t0 = t,
-                None => return Ok(Some(e0)),
+                Parsed(t) => t0 = t,
+                _ => return Ok(Parsed(e0)),
             }
-            match self.parse_term()? {
-                Some(e1) => match t0 {
-                    Token::Plus => e0 = Expr::add(e0, e1),
-                    Token::Minus => e0 = Expr::sub(e0, e1),
-                    _ => unreachable!(),
-                },
-                None => {
-                    return Err(self.expect("term"));
-                }
+            let e1 = self.parse_term()?.ok_or("term")?;
+            match t0 {
+                Token::Plus => e0 = Expr::add(e0, e1),
+                Token::Minus => e0 = Expr::sub(e0, e1),
+                _ => unreachable!(),
             }
         }
     }
 
-    fn proceed<T>(&mut self, x: T) -> Result<Option<T>, LocatedError> {
+    fn proceed<T>(&mut self, x: T) -> Result<Parse<T>, LocatedError> {
         self.lex()?;
-        Ok(Some(x))
+        Ok(Parse::Parsed(x))
     }
 
-    fn parse_binary_operator(&mut self) -> Result<Option<Token>, LocatedError> {
+    fn parse_binary_operator(&mut self) -> Result<Parse<Token>, LocatedError> {
         use self::Token::*;
         Ok(match self.current {
             Some(Located(_, Plus)) => self.proceed(Plus)?,
             Some(Located(_, Minus)) => self.proceed(Minus)?,
-            _ => None,
+            Some(ref t) => Parse::Other(t.clone()),
+            None => Parse::EOF(self.position()),
         })
     }
 
-    fn parse_term(&mut self) -> Result<Option<Expr>, LocatedError> {
+    fn parse_term(&mut self) -> Result<Parse<Expr>, LocatedError> {
+        use self::Parse::*;
         let e0: Expr;
         match self.parse_factor()? {
-            Some(e) => e0 = e,
-            None => return Ok(None),
+            Parsed(e) => e0 = e,
+            p => return Ok(p),
         }
         let mut v = vec![];
         loop {
             match self.parse_factor()? {
-                Some(e1) => v.push(e1),
-                None => {
-                    return Ok(Some(
+                Parsed(e1) => v.push(e1),
+                _ => {
+                    return Ok(Parsed(
                         v.into_iter().fold(e0, |e, e1| Expr::Term(Term::app(e, e1))),
                     ))
                 }
@@ -354,14 +367,15 @@ impl<R: Read> Parser<R> {
         }
     }
 
-    fn parse_factor(&mut self) -> Result<Option<Expr>, LocatedError> {
+    fn parse_factor(&mut self) -> Result<Parse<Expr>, LocatedError> {
         Ok(match self.take() {
             Some(Located(_, Token::Number(n))) => self.proceed(Expr::Term(Term::Int(n as isize)))?,
             Some(Located(_, Token::Ident(s))) => self.proceed(Expr::Term(Term::Var(s)))?,
-            mut current => {
-                mem::swap(&mut self.current, &mut current);
-                None
+            Some(t) => {
+                mem::swap(&mut self.current, &mut Some(t.clone()));
+                Parse::Other(t)
             }
+            None => Parse::EOF(self.position()),
         })
     }
 
@@ -380,7 +394,7 @@ impl<R: Read> Parser<R> {
             expect!("colon", Token::Colon, {
                 let ty = self.parse_type()?;
                 expect!("dot", Token::Dot, {
-                    let body = self.parse()?.ok_or(self.expect("expression"))?;
+                    let body = self.parse()?.ok_or("expression")?;
                     return Ok(Expr::Term(Term::Abs(s, ty, Box::new(body))));
                 })
             })
