@@ -458,7 +458,7 @@ impl Error {
         Error::Expect(String::from(s), t)
     }
 
-    fn is_eof(&self) -> bool {
+    pub fn is_eof(&self) -> bool {
         match *self {
             Error::EOF(_) => true,
             _ => false,
