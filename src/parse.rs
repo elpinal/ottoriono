@@ -388,16 +388,10 @@ impl<R: Read> Parser<R> {
                 self.lex()?;
                 let e = self.parse()?.ok_or("expression")?;
                 match self.current {
-                    Some(Located(_, Token::RParen)) => self.proceed(e),
-                    Some(Located(ref p, ref t)) => Err(Located(
-                        p.clone(),
-                        Error::expect("right parenthesis", t.clone()),
-                    )),
-                    None => Err(Located(
-                        self.position(),
-                        Error::EOF("right parenthesis".to_string()),
-                    )),
-                }
+                    Some(Located(_, Token::RParen)) => Parse::Parsed(self.proceed(e)?),
+                    Some(ref l) => Parse::Other(l.clone()),
+                    None => Parse::EOF(self.position()),
+                }.ok_or("right parenthesis")
             }
             Some(t) => {
                 mem::swap(&mut self.current, &mut Some(t.clone()));
