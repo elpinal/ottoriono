@@ -381,14 +381,14 @@ impl<R: Read> Parser<R> {
     }
 
     fn parse_factor(&mut self) -> Result<Parse<Expr>, LocatedError> {
-        Ok(match self.take() {
-            Some(Located(_, Token::Number(n))) => self.proceed(Expr::Term(Term::Int(n as isize)))?,
-            Some(Located(_, Token::Ident(s))) => self.proceed(Expr::Term(Term::Var(s)))?,
+        match self.take() {
+            Some(Located(_, Token::Number(n))) => self.proceed(Expr::Term(Term::Int(n as isize))),
+            Some(Located(_, Token::Ident(s))) => self.proceed(Expr::Term(Term::Var(s))),
             Some(Located(_, Token::LParen)) => {
                 self.lex()?;
                 let e = self.parse()?.ok_or("expression")?;
                 match self.current {
-                    Some(Located(_, Token::RParen)) => self.proceed(e)?,
+                    Some(Located(_, Token::RParen)) => self.proceed(e),
                     Some(_) => unimplemented!(),
                     None => {
                         return Err(Located(
@@ -400,10 +400,10 @@ impl<R: Read> Parser<R> {
             }
             Some(t) => {
                 mem::swap(&mut self.current, &mut Some(t.clone()));
-                Parse::Other(t)
+                Ok(Parse::Other(t))
             }
-            None => Parse::EOF(self.position()),
-        })
+            None => Ok(Parse::EOF(self.position())),
+        }
     }
 
     fn parse_abs(&mut self) -> Result<Expr, LocatedError> {
