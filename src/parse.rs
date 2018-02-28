@@ -218,6 +218,7 @@ impl<R: Read> Lexer<R> {
             }
         }
         match self.current {
+            b'0' => ret!(self.lex_zero()),
             b if is_digit_start(b) => ret!(self.lex_number()),
             b if is_ident_start(b) => ret!(self.lex_ident()),
             b'\\' => ret!(self.proceed(Lambda)),
@@ -228,6 +229,15 @@ impl<R: Read> Lexer<R> {
             b'(' => ret!(self.proceed(LParen)),
             b')' => ret!(self.proceed(RParen)),
             b => Err(Located(p, Error::Illegal(b))),
+        }
+    }
+
+    fn lex_zero(&mut self) -> Result<Option<Token>, LocatedError> {
+        self.next_store()?;
+        if self.eof || !is_digit(self.current) {
+            Ok(Some(Token::Number(0)))
+        } else {
+            Err(Located(self.position(), Error::LeadingZero(self.current)))
         }
     }
 
