@@ -384,7 +384,9 @@ impl<R: Read> Parser<R> {
             Some(Located(_, Ident(s))) => self.proceed(Expr::Term(Term::Var(s))),
             Some(Located(_, LParen)) => {
                 self.lex()?;
-                let e = self.parse()?.ok_or("expression")?;
+                let e = self.parse()?.ok_or(
+                    "expression since at a context of a factor the left parenthesis provided",
+                )?; // TODO: consider making Error contain its reason as data types, e.g., "why expecting it?".
                 match self.current {
                     Some(Located(_, RParen)) => Parsed(self.proceed(e)?),
                     Some(ref l) => Other(l.clone()),
