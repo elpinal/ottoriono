@@ -316,8 +316,9 @@ impl<R: Read> Parser<R> {
     }
 
     fn parse(&mut self) -> Result<Parse<Expr>, LocatedError> {
-        match self.current_or_eof("expression")?.1 {
-            Token::Lambda => {
+        match self.current {
+            None => Ok(Parse::EOF(self.position())),
+            Some(Located(_, Token::Lambda)) => {
                 self.lex()?;
                 self.parse_abs().map(|x| Parse::Parsed(x))
             }
