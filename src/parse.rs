@@ -63,6 +63,7 @@ pub enum Error {
     Expect(String, Token),
     Trailing(Token),
     Illegal(u8),
+    LeadingZero(u8),
 }
 
 pub fn parse<R>(r: R) -> Result<Expr, LocatedError>
@@ -481,6 +482,7 @@ impl fmt::Display for Error {
             Expect(ref s, ref t) => write!(f, "got {:#}, but expected {}", t, s),
             Trailing(ref t) => write!(f, "trailing {:#}, but expected end of file", t),
             Illegal(b) => write!(f, "illegal byte {:?}", b as char),
+            LeadingZero(b) => write!(f, "a digit {:?} led by '0'", b as char),
         }
     }
 }
@@ -494,6 +496,7 @@ impl error::Error for Error {
             Expect(..) => "expected an expression denoted by a string, but got a token",
             Trailing(..) => "given a trailing token, but expected end of file",
             Illegal(..) => "given an illegal byte",
+            LeadingZero(..) => "a number both starting with '0' and not 0",
         }
     }
 }
