@@ -388,9 +388,7 @@ impl<R: Read> Parser<R> {
                 self.lex()?;
                 let e = self.parse()?.ok_or("expression")?;
                 match self.current {
-                    Some(Located(_, Token::RParen)) => {
-                        self.proceed(e)?
-                    }
+                    Some(Located(_, Token::RParen)) => self.proceed(e)?,
                     Some(_) => unimplemented!(),
                     None => {
                         return Err(Located(
