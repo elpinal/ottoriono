@@ -389,7 +389,10 @@ impl<R: Read> Parser<R> {
                 let e = self.parse()?.ok_or("expression")?;
                 match self.current {
                     Some(Located(_, Token::RParen)) => self.proceed(e),
-                    Some(_) => unimplemented!(),
+                    Some(Located(ref p, ref t)) => Err(Located(
+                        p.clone(),
+                        Error::expect("right parenthesis", t.clone()),
+                    )),
                     None => {
                         return Err(Located(
                             self.position(),
