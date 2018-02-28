@@ -393,12 +393,10 @@ impl<R: Read> Parser<R> {
                         p.clone(),
                         Error::expect("right parenthesis", t.clone()),
                     )),
-                    None => {
-                        return Err(Located(
-                            self.position(),
-                            Error::EOF("right parenthesis".to_string()),
-                        ))
-                    }
+                    None => Err(Located(
+                        self.position(),
+                        Error::EOF("right parenthesis".to_string()),
+                    )),
                 }
             }
             Some(t) => {
