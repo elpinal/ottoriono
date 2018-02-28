@@ -68,6 +68,10 @@ impl Term {
     pub fn app(e1: Expr, e2: Expr) -> Term {
         Term::App(Box::new(e1), Box::new(e2))
     }
+
+    pub fn abs(s: String, ty: Type, e: Expr) -> Term {
+        Term::Abs(s, ty, Box::new(e))
+    }
 }
 
 impl Type {
