@@ -372,6 +372,7 @@ impl<R: Read> Parser<R> {
             match self.parse_factor()? {
                 Parsed(e1) => v.push(e1),
                 Other(Located(_, Token::LParen)) => {
+                    self.lex()?;
                     let e = self.parse()?.ok_or("expression")?;
                     match self.current {
                         Some(Located(_, Token::RParen)) => {
