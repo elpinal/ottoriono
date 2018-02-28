@@ -428,7 +428,7 @@ impl<R: Read> Parser<R> {
                 let ty = self.parse_type()?;
                 expect!("dot", Token::Dot, {
                     let body = self.parse()?.ok_or("expression")?;
-                    return Ok(Expr::Term(Term::Abs(s, ty, Box::new(body))));
+                    return Ok(Expr::Term(Term::abs(s, ty, body)));
                 })
             })
         );
@@ -634,19 +634,19 @@ mod tests {
 
         assert_parse!(
             "\\x:int.12 y 3",
-            Term(Abs(
+            Term(Term::abs(
                 String::from("x"),
                 Type::Int,
-                Box::new(Term(Term::app(Term(Term::app(int(12), var("y"))), int(3))),),
+                Term(Term::app(Term(Term::app(int(12), var("y"))), int(3))),
             ))
         );
 
         assert_parse!(
             "\\x:int -> int.\\ y : int . 9",
-            Term(Abs(
+            Term(Term::abs(
                 String::from("x"),
                 Type::arr(Type::Int, Type::Int),
-                Box::new(Term(Abs(String::from("y"), Type::Int, Box::new(int(9)))),),
+                Term(Term::abs(String::from("y"), Type::Int, int(9))),
             ))
         );
 
