@@ -371,23 +371,6 @@ impl<R: Read> Parser<R> {
         loop {
             match self.parse_factor()? {
                 Parsed(e1) => v.push(e1),
-                Other(Located(_, Token::LParen)) => {
-                    self.lex()?;
-                    let e = self.parse()?.ok_or("expression")?;
-                    match self.current {
-                        Some(Located(_, Token::RParen)) => {
-                            v.push(e);
-                            self.lex()?;
-                        }
-                        Some(_) => unimplemented!(),
-                        None => {
-                            return Err(Located(
-                                self.position(),
-                                Error::EOF("right parenthesis".to_string()),
-                            ))
-                        }
-                    }
-                }
                 _ => {
                     return Ok(Parsed(
                         v.into_iter().fold(e0, |e, e1| Expr::Term(Term::app(e, e1))),
@@ -401,6 +384,22 @@ impl<R: Read> Parser<R> {
         Ok(match self.take() {
             Some(Located(_, Token::Number(n))) => self.proceed(Expr::Term(Term::Int(n as isize)))?,
             Some(Located(_, Token::Ident(s))) => self.proceed(Expr::Term(Term::Var(s)))?,
+            Some(Located(_, Token::LParen)) => {
+                self.lex()?;
+                let e = self.parse()?.ok_or("expression")?;
+                match self.current {
+                    Some(Located(_, Token::RParen)) => {
+                        self.proceed(e)?
+                    }
+                    Some(_) => unimplemented!(),
+                    None => {
+                        return Err(Located(
+                            self.position(),
+                            Error::EOF("right parenthesis".to_string()),
+                        ))
+                    }
+                }
+            }
             Some(t) => {
                 mem::swap(&mut self.current, &mut Some(t.clone()));
                 Parse::Other(t)
