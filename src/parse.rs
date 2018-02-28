@@ -371,6 +371,22 @@ impl<R: Read> Parser<R> {
         loop {
             match self.parse_factor()? {
                 Parsed(e1) => v.push(e1),
+                Other(Located(_, Token::LParen)) => {
+                    let e = self.parse()?.ok_or("expression")?;
+                    match self.current {
+                        Some(Located(_, Token::RParen)) => {
+                            v.push(e);
+                            self.lex()?;
+                        }
+                        Some(_) => unimplemented!(),
+                        None => {
+                            return Err(Located(
+                                self.position(),
+                                Error::EOF("right parenthesis".to_string()),
+                            ))
+                        }
+                    }
+                }
                 _ => {
                     return Ok(Parsed(
                         v.into_iter().fold(e0, |e, e1| Expr::Term(Term::app(e, e1))),
