@@ -104,6 +104,8 @@ pub enum Token {
     Colon,
     Dot,
     BinOp(BinOpKind),
+    LParen,
+    RParen,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -222,6 +224,8 @@ impl<R: Read> Lexer<R> {
             b':' => ret!(self.proceed(Colon)),
             b'.' => ret!(self.proceed(Dot)),
             b'+' => ret!(self.proceed(BinOp(BinOpKind::Plus))),
+            b'(' => ret!(self.proceed(LParen)),
+            b')' => ret!(self.proceed(RParen)),
             b => Err(Located(p, Error::Illegal(b))),
         }
     }
@@ -504,6 +508,8 @@ impl fmt::Display for Token {
                 Colon => write!(f, "colon"),
                 Dot => write!(f, "dot"),
                 BinOp(ref k) => k.fmt(f),
+                LParen => write!(f, "left parenthesis"),
+                RParen => write!(f, "right parenthesis"),
             }
         } else {
             match *self {
@@ -515,6 +521,8 @@ impl fmt::Display for Token {
                 Colon => write!(f, ":"),
                 Dot => write!(f, "."),
                 BinOp(ref k) => k.fmt(f),
+                LParen => write!(f, "("),
+                RParen => write!(f, ")"),
             }
         }
     }
