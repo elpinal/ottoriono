@@ -310,11 +310,6 @@ impl<R: Read> Parser<R> {
         mem::replace(&mut self.current, None)
     }
 
-    fn current_or_eof(&self, s: &str) -> Result<&Located<Token>, LocatedError> {
-        let t = self.current.as_ref();
-        t.ok_or(Located(self.position(), Error::EOF(s.to_string())))
-    }
-
     fn parse(&mut self) -> Result<Parse<Expr>, LocatedError> {
         match self.current {
             None => Ok(Parse::EOF(self.position())),
