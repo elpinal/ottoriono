@@ -382,14 +382,15 @@ impl<R: Read> Parser<R> {
 
     fn parse_factor(&mut self) -> Result<Parse<Expr>, LocatedError> {
         use self::Parse::*;
+        use self::Token::*;
         match self.take() {
-            Some(Located(_, Token::Number(n))) => self.proceed(Expr::Term(Term::Int(n as isize))),
-            Some(Located(_, Token::Ident(s))) => self.proceed(Expr::Term(Term::Var(s))),
-            Some(Located(_, Token::LParen)) => {
+            Some(Located(_, Number(n))) => self.proceed(Expr::Term(Term::Int(n as isize))),
+            Some(Located(_, Ident(s))) => self.proceed(Expr::Term(Term::Var(s))),
+            Some(Located(_, LParen)) => {
                 self.lex()?;
                 let e = self.parse()?.ok_or("expression")?;
                 match self.current {
-                    Some(Located(_, Token::RParen)) => Parsed(self.proceed(e)?),
+                    Some(Located(_, RParen)) => Parsed(self.proceed(e)?),
                     Some(ref l) => Other(l.clone()),
                     None => EOF(self.position()),
                 }.ok_or("right parenthesis")
