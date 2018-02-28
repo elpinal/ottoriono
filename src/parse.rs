@@ -381,6 +381,7 @@ impl<R: Read> Parser<R> {
     }
 
     fn parse_factor(&mut self) -> Result<Parse<Expr>, LocatedError> {
+        use self::Parse::*;
         match self.take() {
             Some(Located(_, Token::Number(n))) => self.proceed(Expr::Term(Term::Int(n as isize))),
             Some(Located(_, Token::Ident(s))) => self.proceed(Expr::Term(Term::Var(s))),
@@ -388,16 +389,16 @@ impl<R: Read> Parser<R> {
                 self.lex()?;
                 let e = self.parse()?.ok_or("expression")?;
                 match self.current {
-                    Some(Located(_, Token::RParen)) => Parse::Parsed(self.proceed(e)?),
-                    Some(ref l) => Parse::Other(l.clone()),
-                    None => Parse::EOF(self.position()),
+                    Some(Located(_, Token::RParen)) => Parsed(self.proceed(e)?),
+                    Some(ref l) => Other(l.clone()),
+                    None => EOF(self.position()),
                 }.ok_or("right parenthesis")
             }
             Some(t) => {
                 mem::swap(&mut self.current, &mut Some(t.clone()));
-                Ok(Parse::Other(t))
+                Ok(Other(t))
             }
-            None => Ok(Parse::EOF(self.position())),
+            None => Ok(EOF(self.position())),
         }
     }
 
