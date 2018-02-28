@@ -610,6 +610,16 @@ mod tests {
         );
 
         assert_parse!(
+            "(x y) z",
+            Term(Term::app(Term(Term::app(var("x"), var("y"))), var("z")))
+        );
+
+        assert_parse!(
+            "x (y z)",
+            Term(Term::app(var("x"), Term(Term::app(var("y"), var("z")))))
+        );
+
+        assert_parse!(
             "\\x:int.12 y 3",
             Term(Abs(
                 String::from("x"),
